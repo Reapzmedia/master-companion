@@ -258,6 +258,6 @@ Let's continue following the roadmap in AGENTS.md starting with Phase 1 (Depende
 | **Start AHK Macro Bridge** | Run `pc/ahk/companion_bridge.ahk` in AutoHotkey v2 |
 | **Setup USB ADB Tethering** | Run `pc/scripts/setup_adb_reverse.bat` |
 | **Test Command Bridge HTTP**| `powershell pc/scripts/test_command_bridge.ps1 -Action ping` |
-| **Build Android App** | `.\gradlew.bat assembleDebug` |
+| **Build Android App** | `.\gradlew.bat assembleRelease` |
 | **Run Unit Tests** | `.\gradlew.bat testDebugUnitTest` |
-| **Install App to Phone** | `.\gradlew.bat installDebug` |
+| **Install App to Phone** | `.\gradlew.bat installRelease` or `adb install -r app/build/outputs/apk/release/app-release.apk` (**CRITICAL: NEVER installDebug, ALWAYS install release!**) |

@@ -1,0 +1,37 @@
+[project]
+name = "master-companion"
+version = "1.0.4"
+description = "Smart Desk Standby Dashboard & PC Bridge"
+readme = "README.md"
+requires-python = ">=3.10"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+
+[tool.skylos]
+excluded_folders = [
+    ".git",
+    "build",
+    "gradle",
+    ".gradle",
+    "node_modules",
+    "venv",
+    ".venv"
+]
+
+[tool.skylos.rules]
+# In CLI tools (audio_streamer.py and release automation), print() is intentional terminal output
+suppress = ["SKY-L009"]
+
+[tool.skylos.gate]
+max_high_severity = 0
+max_critical_severity = 0
+fail_on_vulnerabilities = true
+fail_on_secrets = true

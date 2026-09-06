@@ -11,13 +11,14 @@ import struct
 import sys
 import time
 import signal
+from typing import Optional, Tuple, Any
 
 try:
     import numpy as np
     import sounddevice as sd
 except ImportError as e:
-    print(f"ERROR: Missing required Python dependency: {e}")
-    print("Run: pip install sounddevice numpy")
+    print(f"ERROR: Missing required Python dependency: {e}", file=sys.stderr)
+    print("Run: pip install sounddevice numpy", file=sys.stderr)
     sys.exit(1)
 
 # Safe Opus import check
@@ -26,7 +27,7 @@ opus_error_message = ""
 try:
     import opuslib
     # Try dummy encoder to verify opus.dll actually loads
-    test_enc = opuslib.Encoder(48000, 2, opuslib.APPLICATION_AUDIO)
+    _test_enc = opuslib.Encoder(48000, 2, opuslib.APPLICATION_AUDIO)
     OPUS_AVAILABLE = True
 except Exception as e:
     OPUS_AVAILABLE = False
@@ -40,7 +41,7 @@ CODEC_PCM = 0x01
 CODEC_OPUS = 0x02
 
 
-def list_audio_devices():
+def list_audio_devices() -> None:
     """List all available audio input and output devices."""
     print("\nAvailable Audio Devices:")
     print("=" * 70)
@@ -64,9 +65,33 @@ def create_packet(codec_flag: int, seq: int, timestamp: int, payload: bytes) -> 
     return header + payload
 
 
-def stream_audio(target_ip: str, port: int, device: int = None,
-                 codec: str = 'opus', verbose: bool = False):
-    """Main audio streaming loop capturing from WASAPI loopback and transmitting via UDP."""
+def resolve_input_device(device: Optional[int], *, verbose: bool = False) -> int:
+    """Resolve audio input device index, automatically finding WASAPI loopback or stereo mix."""
+    if device is not None:
+        return device
+
+    devices = sd.query_devices()
+    for i, dev in enumerate(devices):
+        name_lower = dev['name'].lower()
+        if ('loopback' in name_lower or 'stereo mix' in name_lower) and dev['max_input_channels'] >= 2:
+            return i
+
+    try:
+        default_out = sd.default.device[1]
+        if default_out is not None and default_out >= 0:
+            print(f"Default loopback not explicitly listed, checking default output device #{default_out}...")
+            return default_out
+    except (IndexError, TypeError, KeyError) as err:
+        if verbose:
+            print(f"Could not query default device index: {err}")
+
+    print("ERROR: No default WASAPI loopback or stereo mix audio device found.", file=sys.stderr)
+    print("Run with --list-devices to inspect available hardware and specify with --device <num>.", file=sys.stderr)
+    sys.exit(1)
+
+
+def setup_encoder(codec: str) -> Tuple[Optional[Any], bool, int]:
+    """Configure and initialize audio encoder (Opus or uncompressed PCM)."""
     global OPUS_AVAILABLE
 
     use_opus = (codec.lower() == 'opus')
@@ -78,9 +103,9 @@ def stream_audio(target_ip: str, port: int, device: int = None,
         print("       Tip: Install opus.dll in PATH or use '--codec pcm' to suppress this message.\n")
         use_opus = False
 
+    encoder = None
     codec_flag = CODEC_OPUS if use_opus else CODEC_PCM
 
-    encoder = None
     if use_opus:
         try:
             encoder = opuslib.Encoder(SAMPLE_RATE, CHANNELS, opuslib.APPLICATION_AUDIO)
@@ -89,92 +114,80 @@ def stream_audio(target_ip: str, port: int, device: int = None,
             use_opus = False
             codec_flag = CODEC_PCM
 
-    # Resolve target device
-    input_device = device
-    if input_device is None:
-        devices = sd.query_devices()
-        # Look for default WASAPI loopback device
-        for i, dev in enumerate(devices):
-            name_lower = dev['name'].lower()
-            if ('loopback' in name_lower or 'stereo mix' in name_lower) and dev['max_input_channels'] >= 2:
-                input_device = i
-                break
+    return encoder, use_opus, codec_flag
 
-        if input_device is None:
-            # Check default output device
-            try:
-                default_out = sd.default.device[1]
-                if default_out is not None and default_out >= 0:
-                    print(f"Default loopback not explicitly listed, checking default output device #{default_out}...")
-                    input_device = default_out
-            except Exception:
-                pass
 
-        if input_device is None:
-            print("ERROR: No default WASAPI loopback or stereo mix audio device found.")
-            print("Run with --list-devices to inspect available hardware and specify with --device <num>.")
-            sys.exit(1)
+def process_audio_frame(
+    indata: np.ndarray,
+    encoder: Optional[Any],
+    *,
+    use_opus: bool = False,
+    verbose: bool = False
+) -> Optional[bytes]:
+    """Convert float32 samples to int16 PCM and optionally compress using Opus."""
+    audio_int16 = (np.clip(indata, -1.0, 1.0) * 32767.0).astype(np.int16)
+    if use_opus and encoder is not None:
+        try:
+            return encoder.encode(audio_int16.tobytes(), FRAME_SIZE)
+        except Exception as e:
+            if verbose:
+                print(f"  [ERR] Opus encode error: {e}")
+            return None
+    return audio_int16.tobytes()
 
-    device_info = sd.query_devices(input_device)
-    dev_name = device_info['name']
 
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
+def print_streaming_banner(device_id: int, dev_name: str, target: str, port: int, use_opus: bool) -> None:
+    """Display active connection telemetry header."""
     print("═══════════════════════════════════════════════════════════════════")
     print(" Master Companion — PC Audio Streamer Running")
     print("═══════════════════════════════════════════════════════════════════")
-    print(f" Audio Device : [{input_device}] {dev_name}")
-    print(f" Target       : {target_ip}:{port}")
+    print(f" Audio Device : [{device_id}] {dev_name}")
+    print(f" Target       : {target}:{port}")
     print(f" Codec        : {'Opus (48kHz stereo, 20ms frame)' if use_opus else 'PCM 16-bit stereo uncompressed'}")
     print(f" Frame Size   : {FRAME_SIZE} samples ({FRAME_SIZE / SAMPLE_RATE * 1000:.1f}ms)")
     print(" Press Ctrl+C in this terminal to stop streaming.")
     print("═══════════════════════════════════════════════════════════════════\n")
 
-    seq = 0
-    timestamp = 0
-    packets_sent = 0
-    start_time = time.time()
-    running = True
+
+def stream_audio(
+    target_ip: str,
+    port: int,
+    device: Optional[int] = None,
+    codec: str = 'opus',
+    verbose: bool = False
+) -> None:
+    """Main audio streaming loop capturing from WASAPI loopback and transmitting via UDP."""
+    encoder, use_opus, codec_flag = setup_encoder(codec)
+    input_device = resolve_input_device(device, verbose=verbose)
+    device_info = sd.query_devices(input_device)
+    print_streaming_banner(input_device, device_info['name'], target_ip, port, use_opus)
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    state = {"seq": 0, "timestamp": 0, "packets": 0, "start": time.time(), "running": True}
 
     def audio_callback(indata, frames, time_info, status):
-        nonlocal seq, timestamp, packets_sent
         if status and verbose:
             print(f"  [STREAM WARNING] {status}")
 
-        # Scale float32 (-1.0 to 1.0) to int16 PCM
-        audio_int16 = (np.clip(indata, -1.0, 1.0) * 32767.0).astype(np.int16)
+        payload = process_audio_frame(indata, encoder, use_opus=use_opus, verbose=verbose)
+        if payload is None:
+            return
 
-        if use_opus:
-            try:
-                payload = encoder.encode(audio_int16.tobytes(), FRAME_SIZE)
-            except Exception as e:
-                if verbose:
-                    print(f"  [ERR] Opus encode error: {e}")
-                return
-        else:
-            payload = audio_int16.tobytes()
-
-        packet = create_packet(codec_flag, seq, timestamp, payload)
+        packet = create_packet(codec_flag, state["seq"], state["timestamp"], payload)
         try:
             sock.sendto(packet, (target_ip, port))
-            seq += 1
-            timestamp += FRAME_SIZE
-            packets_sent += 1
-
-            if verbose and packets_sent % 250 == 0:
-                elapsed = time.time() - start_time
-                pps = packets_sent / elapsed if elapsed > 0 else 0
-                print(f"  [STATS] Sent {packets_sent} packets ({pps:.1f} pkt/s, seq={seq}, size={len(payload)}B)")
-        except Exception as e:
+            state["seq"] += 1
+            state["timestamp"] += FRAME_SIZE
+            state["packets"] += 1
+            if verbose and state["packets"] % 250 == 0:
+                elapsed = time.time() - state["start"]
+                pps = state["packets"] / elapsed if elapsed > 0 else 0
+                print(f"  [STATS] Sent {state['packets']} packets ({pps:.1f} pkt/s, seq={state['seq']})")
+        except OSError as e:
             if verbose:
                 print(f"  [ERR] UDP socket send error: {e}")
 
-    def handle_sigint(sig, frame):
-        nonlocal running
-        running = False
-        print("\nStopping audio stream...")
-
-    signal.signal(signal.SIGINT, handle_sigint)
+    signal.signal(signal.SIGINT, lambda s, f: state.update({"running": False}))
 
     try:
         with sd.InputStream(
@@ -185,18 +198,18 @@ def stream_audio(target_ip: str, port: int, device: int = None,
             dtype='float32',
             callback=audio_callback
         ):
-            while running:
+            while state["running"]:
                 time.sleep(0.1)
     except Exception as e:
         print(f"\nAudio capture error: {e}")
         print("Tip: If WASAPI loopback fails, verify 'Stereo Mix' or a virtual audio cable is enabled.")
     finally:
         sock.close()
-        total_time = time.time() - start_time
-        print(f"Streaming stopped. Sent {packets_sent} packets over {total_time:.1f} seconds.")
+        total_time = time.time() - state["start"]
+        print(f"\nStreaming stopped. Sent {state['packets']} packets over {total_time:.1f} seconds.")
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Master Companion PC Audio Streamer (WASAPI Loopback to Android UDP)",
         formatter_class=argparse.RawDescriptionHelpFormatter,

@@ -46,3 +46,8 @@ dist/
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Skylos reports and cache
+.skylos/
+skylos_report.json
+

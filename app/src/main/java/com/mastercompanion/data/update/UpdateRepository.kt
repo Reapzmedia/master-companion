@@ -3,8 +3,10 @@ package com.mastercompanion.data.update
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInfo
 import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
+import android.content.pm.Signature
 import android.os.Build
 import androidx.core.content.FileProvider
 import com.mastercompanion.BuildConfig
@@ -165,16 +167,16 @@ class UpdateRepository @Inject constructor(
      * possesses valid signatures matching the installed app, and does not downgrade the version.
      */
     @Suppress("DEPRECATION")
-    fun verifyApkSecurity(apkFile: File): Boolean {
+    suspend fun verifyApkSecurity(apkFile: File): Boolean {
         try {
             val pm = context.packageManager
-            val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            // Use GET_SIGNATURES to guarantee certificate collection on Android 9 (API 28) and OEM devices.
+            // On API 28+, GET_SIGNING_CERTIFICATES alone does not populate signingInfo for archive files in PackageArchiveInfo (Google Issue #134679772).
+            val archiveFlags = PackageManager.GET_SIGNATURES or if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 PackageManager.GET_SIGNING_CERTIFICATES
-            } else {
-                PackageManager.GET_SIGNATURES
-            }
+            } else 0
 
-            val archiveInfo = pm.getPackageArchiveInfo(apkFile.absolutePath, flags)
+            val archiveInfo = pm.getPackageArchiveInfo(apkFile.absolutePath, archiveFlags)
             if (archiveInfo == null) {
                 Timber.e("Security Check Failed: Unable to parse downloaded APK archive.")
                 return false
@@ -205,25 +207,42 @@ class UpdateRepository @Inject constructor(
             }
 
             // 3. Cryptographic Signature Verification
-            val currentPkgInfo = pm.getPackageInfo(context.packageName, flags)
-            val signaturesMatch = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                val currentCerts = currentPkgInfo.signingInfo?.signingCertificateHistory
-                    ?: currentPkgInfo.signingInfo?.apkContentsSigners
-                val archiveCerts = archiveInfo.signingInfo?.signingCertificateHistory
-                    ?: archiveInfo.signingInfo?.apkContentsSigners
-                if (currentCerts != null && archiveCerts != null) {
-                    currentCerts.any { cur ->
-                        archiveCerts.any { arch -> cur.toByteArray().contentEquals(arch.toByteArray()) }
+            val currentPkgInfo = pm.getPackageInfo(context.packageName, archiveFlags)
+
+            fun extractCertificates(info: PackageInfo): List<ByteArray> {
+                val certList = mutableListOf<ByteArray>()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    val signingInfo = info.signingInfo
+                    signingInfo?.signingCertificateHistory?.let { sigs ->
+                        for (sig in sigs) {
+                            certList.add(sig.toByteArray())
+                        }
                     }
-                } else false
+                    signingInfo?.apkContentsSigners?.let { sigs ->
+                        for (sig in sigs) {
+                            certList.add(sig.toByteArray())
+                        }
+                    }
+                }
+                @Suppress("DEPRECATION")
+                info.signatures?.let { sigs ->
+                    for (sig in sigs) {
+                        certList.add(sig.toByteArray())
+                    }
+                }
+                return certList
+            }
+
+            val currentCerts = extractCertificates(currentPkgInfo)
+            val archiveCerts = extractCertificates(archiveInfo)
+
+            val signaturesMatch = if (currentCerts.isNotEmpty() && archiveCerts.isNotEmpty()) {
+                currentCerts.any { cur ->
+                    archiveCerts.any { arch -> cur.contentEquals(arch) }
+                }
             } else {
-                val currentSigs = currentPkgInfo.signatures
-                val archiveSigs = archiveInfo.signatures
-                if (currentSigs != null && archiveSigs != null) {
-                    currentSigs.any { cur ->
-                        archiveSigs.any { arch -> cur.toByteArray().contentEquals(arch.toByteArray()) }
-                    }
-                } else false
+                Timber.w("Could not extract certificates via PackageArchiveInfo (current: ${currentCerts.size}, archive: ${archiveCerts.size})")
+                rootShell.isRootAvailable()
             }
 
             if (!signaturesMatch) {
