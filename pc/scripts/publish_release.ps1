@@ -25,7 +25,7 @@ if (-not $token) {
 
 $repo = "Reapzmedia/master-companionion"
 $notesPath = Join-Path $PSScriptRoot "..\..\RELEASE_NOTES.md"
-$body = if (Test-Path $notesPath) { Get-Content -Raw -Encoding UTF8 $notesPath } else { "Release $tag" }
+$body = if (Test-Path $notesPath) { [System.IO.File]::ReadAllText($notesPath, [System.Text.Encoding]::UTF8) } else { "Release $tag" }
 
 Write-Host "Creating GitHub Release $tag for $repo..."
 $headers = @{
