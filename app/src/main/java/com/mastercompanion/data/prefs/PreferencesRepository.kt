@@ -54,7 +54,14 @@ class PreferencesRepository @Inject constructor(
         val KEY_WOL_BROADCAST_IP = stringPreferencesKey("wol_broadcast_ip")
         val KEY_LYRICS_LAYOUT = intPreferencesKey("lyrics_layout")
         val KEY_AUTO_CHECK_UPDATES = booleanPreferencesKey("auto_check_updates")
+        val KEY_LAST_TRACK_ID = stringPreferencesKey("last_track_id")
+        val KEY_LAST_TRACK_TITLE = stringPreferencesKey("last_track_title")
+        val KEY_LAST_TRACK_ARTIST = stringPreferencesKey("last_track_artist")
+        val KEY_LAST_TRACK_ALBUM = stringPreferencesKey("last_track_album")
+        val KEY_LAST_TRACK_ART_URL = stringPreferencesKey("last_track_art_url")
+        val KEY_LAST_TRACK_DURATION_MS = longPreferencesKey("last_track_duration_ms")
     }
+
 
     // ═══ Flows ═══
     val authTokenFlow: Flow<String> = dataStore.data.map { prefs ->
@@ -276,4 +283,41 @@ class PreferencesRepository @Inject constructor(
     suspend fun setAutoCheckUpdates(enabled: Boolean) {
         dataStore.edit { it[KEY_AUTO_CHECK_UPDATES] = enabled }
     }
+
+    suspend fun saveLastTrack(
+        trackId: String,
+        title: String,
+        artist: String,
+        album: String,
+        artUrl: String?,
+        durationMs: Long
+    ) {
+        dataStore.edit {
+            it[KEY_LAST_TRACK_ID] = trackId
+            it[KEY_LAST_TRACK_TITLE] = title
+            it[KEY_LAST_TRACK_ARTIST] = artist
+            it[KEY_LAST_TRACK_ALBUM] = album
+            if (artUrl != null) it[KEY_LAST_TRACK_ART_URL] = artUrl
+            it[KEY_LAST_TRACK_DURATION_MS] = durationMs
+        }
+    }
+
+    suspend fun getLastTrack(): com.mastercompanion.domain.model.SpotifyTrack? {
+        val prefs = dataStore.data.firstOrNull() ?: return null
+        val id = prefs[KEY_LAST_TRACK_ID] ?: return null
+        if (id.isBlank()) return null
+        return com.mastercompanion.domain.model.SpotifyTrack(
+            id = id,
+            title = prefs[KEY_LAST_TRACK_TITLE] ?: "Unknown Track",
+            artist = prefs[KEY_LAST_TRACK_ARTIST] ?: "Unknown Artist",
+            album = prefs[KEY_LAST_TRACK_ALBUM] ?: "",
+            albumArtUrl = prefs[KEY_LAST_TRACK_ART_URL],
+            durationMs = prefs[KEY_LAST_TRACK_DURATION_MS] ?: 0L,
+            progressMs = 0L,
+            isPlaying = false,
+            isRecentFallback = true,
+            playlistContext = prefs[KEY_LAST_TRACK_ALBUM]?.ifBlank { "Liked Songs" } ?: "Liked Songs"
+        )
+    }
 }
+

@@ -23,7 +23,9 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
+import android.view.KeyEvent
 import com.mastercompanion.data.spotify.SpotifyAuthManager
+import com.mastercompanion.data.spotify.SpotifyRepository
 import com.mastercompanion.ui.dashboard.DashboardHost
 import com.mastercompanion.ui.theme.MasterCompanionTheme
 import com.mastercompanion.ui.theme.PureBlack
@@ -37,6 +39,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var spotifyAuthManager: SpotifyAuthManager
+
+    @Inject
+    lateinit var spotifyRepository: SpotifyRepository
 
     private var orientationListener: OrientationEventListener? = null
 
@@ -147,4 +152,23 @@ class MainActivity : ComponentActivity() {
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         insetsController.hide(WindowInsetsCompat.Type.systemBars())
     }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        when (keyCode) {
+            KeyEvent.KEYCODE_VOLUME_UP -> {
+                lifecycleScope.launch {
+                    spotifyRepository.adjustVolume(5)
+                }
+                return true
+            }
+            KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                lifecycleScope.launch {
+                    spotifyRepository.adjustVolume(-5)
+                }
+                return true
+            }
+        }
+        return super.onKeyDown(keyCode, event)
+    }
 }
+

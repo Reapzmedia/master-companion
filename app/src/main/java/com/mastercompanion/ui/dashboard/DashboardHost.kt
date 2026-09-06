@@ -42,6 +42,7 @@ import com.mastercompanion.ui.home.MusicPage
 import com.mastercompanion.ui.home.MusicPlayerLayout
 import com.mastercompanion.ui.settings.SettingsPage
 import com.mastercompanion.ui.system.SystemPage
+import com.mastercompanion.ui.home.SpotifyDevicePickerDialog
 import com.mastercompanion.ui.theme.MasterCompanionTheme
 import com.mastercompanion.ui.update.UpdateDialog
 import kotlinx.coroutines.launch
@@ -101,6 +102,9 @@ fun DashboardHost(
     val syncedAccount by viewModel.syncedAccount.collectAsStateWithLifecycle()
     val spotifyVolume by viewModel.spotifyVolume.collectAsStateWithLifecycle()
     val activeDeviceName by viewModel.activeDeviceName.collectAsStateWithLifecycle()
+    val availableDevices by viewModel.availableDevices.collectAsStateWithLifecycle()
+    val nextQueuedTrack by viewModel.nextQueuedTrack.collectAsStateWithLifecycle()
+    val volumeHudVisible by viewModel.volumeHudVisible.collectAsStateWithLifecycle()
 
     val wolBroadcastIp by viewModel.wolBroadcastIp.collectAsStateWithLifecycle()
     val lyricsLayout by viewModel.lyricsLayout.collectAsStateWithLifecycle()
@@ -108,6 +112,21 @@ fun DashboardHost(
     val updateStatus by viewModel.updateStatus.collectAsStateWithLifecycle()
 
     var isFullscreenClock by remember { mutableStateOf(false) }
+    var showHostDeviceDialog by remember { mutableStateOf(false) }
+
+    if (showHostDeviceDialog) {
+        SpotifyDevicePickerDialog(
+            devices = availableDevices,
+            activeDeviceName = activeDeviceName,
+            onSelectDevice = { targetDeviceId ->
+                viewModel.transferPlayback(targetDeviceId)
+                showHostDeviceDialog = false
+            },
+            onRefresh = { viewModel.fetchAvailableDevices() },
+            onDismiss = { showHostDeviceDialog = false },
+            whiteTheme = whiteTheme
+        )
+    }
 
     val context = LocalContext.current
     val calendarPermissionLauncher = rememberLauncherForActivityResult(
@@ -208,6 +227,11 @@ fun DashboardHost(
                             upcomingEvents = upcomingEvents,
                             hasCalendarPermission = hasCalendarPermission,
                             syncedAccount = syncedAccount,
+                            activeDeviceName = activeDeviceName,
+                            onOpenDevices = {
+                                viewModel.fetchAvailableDevices()
+                                showHostDeviceDialog = true
+                            },
                             onToggleChargeLimit = { viewModel.toggleChargeLimit() },
                             onSendWol = { mac, _, broadcastIp -> viewModel.sendWol(mac, broadcastIp) },
                             onSavePcNetwork = { ip, mac -> viewModel.updatePcNetwork(ip, mac) },
@@ -232,6 +256,8 @@ fun DashboardHost(
                         MusicPage(
                             track = currentTrack,
                             lyrics = currentLyrics,
+                            nextTrack = nextQueuedTrack,
+                            volumeHudVisible = volumeHudVisible,
                             isLiked = isLiked,
                             isShuffle = isShuffle,
                             repeatMode = repeatMode,
@@ -240,6 +266,9 @@ fun DashboardHost(
                             initialLayout = MusicPlayerLayout.values().getOrElse(musicLayout) { MusicPlayerLayout.STANDARD },
                             spotifyVolume = spotifyVolume,
                             activeDeviceName = activeDeviceName,
+                            availableDevices = availableDevices,
+                            onFetchDevices = { viewModel.fetchAvailableDevices() },
+                            onSelectDevice = { viewModel.transferPlayback(it) },
                             lyricsLayout = lyricsLayout,
                             onLyricsLayoutChanged = { viewModel.setLyricsLayout(it) },
                             onSetSpotifyVolume = { viewModel.setSpotifyVolume(it) },

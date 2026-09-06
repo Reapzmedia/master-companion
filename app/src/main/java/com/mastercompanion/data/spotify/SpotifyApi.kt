@@ -4,7 +4,12 @@ import com.mastercompanion.data.spotify.dto.CurrentlyPlayingResponse
 import com.mastercompanion.data.spotify.dto.PlaybackStateResponse
 import com.mastercompanion.data.spotify.dto.RecentlyPlayedResponse
 import com.mastercompanion.data.spotify.dto.SpotifyPlaylistSimpleDto
+import com.mastercompanion.data.spotify.dto.SavedTracksResponse
+import com.mastercompanion.data.spotify.dto.SpotifyDevicesResponse
+import com.mastercompanion.data.spotify.dto.SpotifyPlayBody
+import com.mastercompanion.data.spotify.dto.SpotifyQueueResponse
 import com.mastercompanion.data.spotify.dto.SpotifyTokenResponse
+import com.mastercompanion.data.spotify.dto.SpotifyTransferBody
 import kotlinx.serialization.Serializable
 import okhttp3.ResponseBody
 import retrofit2.Response
@@ -60,6 +65,28 @@ interface SpotifyApi {
         @Query("limit") limit: Int = 1
     ): Response<RecentlyPlayedResponse>
 
+    @GET("v1/me/tracks")
+    suspend fun getUserSavedTracks(
+        @Header("Authorization") bearerToken: String,
+        @Query("limit") limit: Int = 1
+    ): Response<SavedTracksResponse>
+
+    @GET("v1/me/player/devices")
+    suspend fun getAvailableDevices(
+        @Header("Authorization") bearerToken: String
+    ): Response<SpotifyDevicesResponse>
+
+    @GET("v1/me/player/queue")
+    suspend fun getQueue(
+        @Header("Authorization") bearerToken: String
+    ): Response<SpotifyQueueResponse>
+
+    @PUT("v1/me/player")
+    suspend fun transferPlayback(
+        @Header("Authorization") bearerToken: String,
+        @Body body: SpotifyTransferBody
+    ): Response<ResponseBody>
+
     @PUT("v1/me/player/volume")
     suspend fun setVolume(
         @Header("Authorization") bearerToken: String,
@@ -69,40 +96,48 @@ interface SpotifyApi {
 
     @PUT("v1/me/player/play")
     suspend fun play(
-        @Header("Authorization") bearerToken: String
+        @Header("Authorization") bearerToken: String,
+        @Query("device_id") deviceId: String? = null,
+        @Body body: SpotifyPlayBody? = null
     ): Response<ResponseBody>
 
     @PUT("v1/me/player/pause")
     suspend fun pause(
-        @Header("Authorization") bearerToken: String
+        @Header("Authorization") bearerToken: String,
+        @Query("device_id") deviceId: String? = null
     ): Response<ResponseBody>
 
     @POST("v1/me/player/next")
     suspend fun next(
-        @Header("Authorization") bearerToken: String
+        @Header("Authorization") bearerToken: String,
+        @Query("device_id") deviceId: String? = null
     ): Response<ResponseBody>
 
     @POST("v1/me/player/previous")
     suspend fun previous(
-        @Header("Authorization") bearerToken: String
+        @Header("Authorization") bearerToken: String,
+        @Query("device_id") deviceId: String? = null
     ): Response<ResponseBody>
 
     @PUT("v1/me/player/seek")
     suspend fun seek(
         @Header("Authorization") bearerToken: String,
-        @Query("position_ms") positionMs: Long
+        @Query("position_ms") positionMs: Long,
+        @Query("device_id") deviceId: String? = null
     ): Response<ResponseBody>
 
     @PUT("v1/me/player/shuffle")
     suspend fun setShuffle(
         @Header("Authorization") bearerToken: String,
-        @Query("state") state: Boolean
+        @Query("state") state: Boolean,
+        @Query("device_id") deviceId: String? = null
     ): Response<ResponseBody>
 
     @PUT("v1/me/player/repeat")
     suspend fun setRepeat(
         @Header("Authorization") bearerToken: String,
-        @Query("state") state: String // "track", "context", "off"
+        @Query("state") state: String, // "track", "context", "off"
+        @Query("device_id") deviceId: String? = null
     ): Response<ResponseBody>
 
     // ═══ Modern Library (Liked Songs) API ═══
@@ -142,6 +177,7 @@ interface SpotifyApi {
         @Header("Authorization") bearerToken: String,
         @Query("ids") ids: String
     ): Response<ResponseBody>
+
 
     // ═══ Token Accounts API ═══
     @FormUrlEncoded

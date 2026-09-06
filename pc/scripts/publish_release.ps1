@@ -1,3 +1,8 @@
+param(
+    [string]$tag = "v1.0.4",
+    [string]$releaseName = "Master Companion v1.0.4 - Broadcast Device Selector & Spotify Remote"
+)
+
 $ErrorActionPreference = "Stop"
 
 # Get GitHub credentials from Git Credential Manager
@@ -19,8 +24,6 @@ if (-not $token) {
 }
 
 $repo = "Reapzmedia/master-companionion"
-$tag = "v1.0.1"
-$releaseName = "Master Companion v1.0.1 - Hotfix and Telemetry"
 $notesPath = Join-Path $PSScriptRoot "..\..\RELEASE_NOTES.md"
 $body = if (Test-Path $notesPath) { Get-Content -Raw -Encoding UTF8 $notesPath } else { "Release $tag" }
 

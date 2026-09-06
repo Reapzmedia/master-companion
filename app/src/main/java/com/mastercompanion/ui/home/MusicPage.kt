@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FormatQuote
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
@@ -40,12 +42,21 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material.icons.filled.DevicesOther
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Smartphone
+import androidx.compose.material.icons.filled.Speaker
+import com.mastercompanion.data.spotify.dto.SpotifyDeviceDto
 import com.mastercompanion.ui.home.lyrics.LyricsLayoutMode
 import com.mastercompanion.ui.home.lyrics.LyricsLayoutSelectorDialog
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -124,6 +135,8 @@ import androidx.compose.ui.text.font.FontFamily
 fun MusicPage(
     track: SpotifyTrack?,
     lyrics: TrackLyrics? = null,
+    nextTrack: SpotifyTrack? = null,
+    volumeHudVisible: Boolean = false,
     isLiked: Boolean = false,
     isShuffle: Boolean = false,
     repeatMode: Int = 0,
@@ -132,6 +145,9 @@ fun MusicPage(
     whiteTheme: Boolean = false,
     spotifyVolume: Int? = null,
     activeDeviceName: String = "",
+    availableDevices: List<SpotifyDeviceDto> = emptyList(),
+    onFetchDevices: () -> Unit = {},
+    onSelectDevice: (String) -> Unit = {},
     lyricsLayout: Int = 0,
     onLyricsLayoutChanged: (Int) -> Unit = {},
     onSetSpotifyVolume: (Int) -> Unit = {},
@@ -147,9 +163,32 @@ fun MusicPage(
     onLayoutChanged: (MusicPlayerLayout) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    var showDevicePickerDialog by remember { mutableStateOf(false) }
+
+    val handleOpenDevices = {
+        showDevicePickerDialog = true
+        onFetchDevices()
+        onOpenDevices()
+    }
+
+    if (showDevicePickerDialog) {
+        SpotifyDevicePickerDialog(
+            devices = availableDevices,
+            activeDeviceName = activeDeviceName,
+            onSelectDevice = { targetDeviceId ->
+                onSelectDevice(targetDeviceId)
+                showDevicePickerDialog = false
+            },
+            onRefresh = onFetchDevices,
+            onDismiss = { showDevicePickerDialog = false },
+            whiteTheme = whiteTheme
+        )
+    }
+
     if (track == null) {
         MusicPageEmptyState(
             onConnectSpotify = onConnectSpotify,
+            onOpenDevices = handleOpenDevices,
             modifier = modifier
         )
         return
@@ -158,9 +197,25 @@ fun MusicPage(
     val context = LocalContext.current
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager }
     var showVolumePopup by remember { mutableStateOf(false) }
-
     var isDraggingSlider by remember { mutableStateOf(false) }
     var pendingVolumeToSend by remember { mutableStateOf<Int?>(null) }
+    var lastVolumeInteractionTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
+
+    // 5-second inactivity timer to automatically dismiss music / volume bar
+    LaunchedEffect(showVolumePopup, lastVolumeInteractionTime, isDraggingSlider) {
+        if (showVolumePopup && !isDraggingSlider) {
+            val mark = lastVolumeInteractionTime
+            delay(5000L)
+            if (lastVolumeInteractionTime == mark && !isDraggingSlider) {
+                showVolumePopup = false
+            }
+        }
+    }
+
+    val toggleVolumePopup = {
+        showVolumePopup = !showVolumePopup
+        lastVolumeInteractionTime = System.currentTimeMillis()
+    }
 
     var volumeProgress by remember {
         mutableFloatStateOf(
@@ -196,12 +251,9 @@ fun MusicPage(
     var showScopeMissingDialog by remember { mutableStateOf(false) }
 
     val handleToggleLike = {
-        if (isLibraryScopeMissing) {
-            showScopeMissingDialog = true
-        } else {
-            onToggleLike()
-        }
+        onToggleLike()
     }
+
 
     fun cycleLayout() {
         val nextIndex = (layoutMode.ordinal + 1) % allLayouts.size
@@ -327,16 +379,21 @@ fun MusicPage(
                         isLiked = isLiked,
                         isShuffle = isShuffle,
                         repeatMode = repeatMode,
+                        activeDeviceName = activeDeviceName,
+                        availableDevices = availableDevices,
+                        onFetchDevices = onFetchDevices,
+                        onSelectDevice = onSelectDevice,
                         onPlayPauseToggle = onPlayPauseToggle,
                         onSkipNext = onSkipNext,
                         onSkipPrevious = onSkipPrevious,
+                        onSeek = onSeek,
                         onToggleShuffle = onToggleShuffle,
                         onToggleLike = handleToggleLike,
                         onToggleRepeat = onToggleRepeat,
-                        onOpenDevices = onOpenDevices,
+                        onOpenDevices = handleOpenDevices,
                         onToggleLyrics = { layoutMode = MusicPlayerLayout.LYRICS },
                         onCycleLayout = { cycleLayout() },
-                        onToggleVolume = { showVolumePopup = !showVolumePopup },
+                        onToggleVolume = toggleVolumePopup,
                         whiteTheme = whiteTheme
                     )
                 } else {
@@ -346,16 +403,21 @@ fun MusicPage(
                         isLiked = isLiked,
                         isShuffle = isShuffle,
                         repeatMode = repeatMode,
+                        activeDeviceName = activeDeviceName,
+                        availableDevices = availableDevices,
+                        onFetchDevices = onFetchDevices,
+                        onSelectDevice = onSelectDevice,
                         onPlayPauseToggle = onPlayPauseToggle,
                         onSkipNext = onSkipNext,
                         onSkipPrevious = onSkipPrevious,
+                        onSeek = onSeek,
                         onToggleShuffle = onToggleShuffle,
                         onToggleLike = handleToggleLike,
                         onToggleRepeat = onToggleRepeat,
-                        onOpenDevices = onOpenDevices,
+                        onOpenDevices = handleOpenDevices,
                         onToggleLyrics = { layoutMode = MusicPlayerLayout.LYRICS },
                         onCycleLayout = { cycleLayout() },
-                        onToggleVolume = { showVolumePopup = !showVolumePopup }
+                        onToggleVolume = toggleVolumePopup
                     )
                 }
             }
@@ -368,9 +430,10 @@ fun MusicPage(
                     onPlayPauseToggle = onPlayPauseToggle,
                     onSkipNext = onSkipNext,
                     onSkipPrevious = onSkipPrevious,
+                    onSeek = onSeek,
                     onToggleLike = handleToggleLike,
                     onCycleLayout = { cycleLayout() },
-                    onToggleVolume = { showVolumePopup = !showVolumePopup },
+                    onToggleVolume = toggleVolumePopup,
                     whiteTheme = whiteTheme
                 )
             }
@@ -395,6 +458,8 @@ fun MusicPage(
                     onToggleShuffle = onToggleShuffle,
                     onToggleLike = handleToggleLike,
                     onToggleRepeat = onToggleRepeat,
+                    onOpenDevices = handleOpenDevices,
+                    activeDeviceName = activeDeviceName,
                     whiteTheme = whiteTheme
                 )
             }
@@ -415,22 +480,38 @@ fun MusicPage(
                     onPlayPauseToggle = onPlayPauseToggle,
                     onSkipNext = onSkipNext,
                     onSkipPrevious = onSkipPrevious,
+                    onSeek = onSeek,
                     onToggleLike = handleToggleLike,
                     onCycleLayout = { cycleLayout() },
-                    onToggleVolume = { showVolumePopup = !showVolumePopup }
+                    onToggleVolume = toggleVolumePopup
                 )
             }
         }
 
+        // ═══ Up Next Song Floating Corner Banner ═══
+        val remainingMs = (track.durationMs - interpolatedProgressMs).coerceAtLeast(0L)
+        val showUpNext = track.isPlaying && remainingMs in 1L..25000L && nextTrack != null
+
+        UpNextBanner(
+            visible = showUpNext,
+            nextTrack = nextTrack,
+            onSkipNext = onSkipNext,
+            whiteTheme = whiteTheme,
+            modifier = Modifier
+                .align(if (isLandscape) Alignment.TopEnd else Alignment.TopCenter)
+                .padding(top = if (isLandscape) 28.dp else 48.dp, end = if (isLandscape) 36.dp else 0.dp)
+        )
+
         // ═══ Interactive Pop-up Volume Slider Bar ═══
         AnimatedVisibility(
-            visible = showVolumePopup,
+            visible = showVolumePopup || volumeHudVisible,
             enter = fadeIn() + scaleIn(),
             exit = fadeOut() + scaleOut(),
             modifier = Modifier
                 .align(if (isLandscape) Alignment.BottomEnd else Alignment.BottomCenter)
                 .padding(end = if (isLandscape) 48.dp else 0.dp, bottom = 60.dp)
         ) {
+
             Column(
                 modifier = Modifier
                     .clip(RoundedCornerShape(16.dp))
@@ -448,7 +529,10 @@ fun MusicPage(
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { handleOpenDevices() }
                     ) {
                         val isSpotifyActive = activeDeviceName.isNotBlank() || spotifyVolume != null
                         Icon(
@@ -494,6 +578,7 @@ fun MusicPage(
                         value = volumeProgress,
                         onValueChange = { newVol ->
                             isDraggingSlider = true
+                            lastVolumeInteractionTime = System.currentTimeMillis()
                             volumeProgress = newVol
                             val volPercent = (newVol * 100).toInt().coerceIn(0, 100)
                             if (spotifyVolume != null || activeDeviceName.isNotBlank()) {
@@ -507,6 +592,7 @@ fun MusicPage(
                         },
                         onValueChangeFinished = {
                             isDraggingSlider = false
+                            lastVolumeInteractionTime = System.currentTimeMillis()
                             val finalVol = (volumeProgress * 100).toInt().coerceIn(0, 100)
                             if (spotifyVolume != null || activeDeviceName.isNotBlank()) {
                                 pendingVolumeToSend = null
@@ -575,6 +661,191 @@ fun MusicPage(
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// SPOTIFY DEVICE BROADCAST MENU (Menu to select device to play on)
+// ═══════════════════════════════════════════════════════════════════
+@Composable
+private fun SpotifyDeviceBroadcastMenu(
+    availableDevices: List<SpotifyDeviceDto>,
+    activeDeviceName: String,
+    onFetchDevices: () -> Unit,
+    onSelectDevice: (String) -> Unit,
+    onOpenFullDevicePicker: () -> Unit,
+    whiteTheme: Boolean = false,
+    iconTint: Color = Color.White.copy(alpha = 0.7f),
+    iconSize: androidx.compose.ui.unit.Dp = 24.dp
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box {
+        IconButton(
+            onClick = {
+                onFetchDevices()
+                expanded = true
+            },
+            modifier = Modifier.size(iconSize + 16.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Cast,
+                contentDescription = "Broadcast to Device",
+                tint = if (activeDeviceName.isNotBlank()) Color(0xFF1DB954) else iconTint,
+                modifier = Modifier.size(iconSize)
+            )
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier
+                .background(if (whiteTheme) Color(0xFFF8FAFC) else Color(0xFF161924))
+                .border(
+                    1.dp,
+                    if (whiteTheme) Color(0xFFCBD5E1) else Color.White.copy(alpha = 0.12f),
+                    RoundedCornerShape(16.dp)
+                )
+                .widthIn(min = 240.dp, max = 300.dp)
+        ) {
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        text = "SELECT PLAYBACK DEVICE",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp,
+                        color = Color(0xFF1DB954)
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.Cast,
+                        contentDescription = null,
+                        tint = Color(0xFF1DB954),
+                        modifier = Modifier.size(16.dp)
+                    )
+                },
+                onClick = {},
+                enabled = false
+            )
+
+            HorizontalDivider(color = if (whiteTheme) Color(0xFFE2E8F0) else Color.White.copy(alpha = 0.08f))
+
+            if (availableDevices.isEmpty()) {
+                DropdownMenuItem(
+                    text = {
+                        Column {
+                            Text(
+                                text = "No Spotify devices found",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = if (whiteTheme) Color(0xFF334155) else Color.White
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Open Spotify on PC/phone to connect",
+                                fontSize = 11.sp,
+                                color = if (whiteTheme) Color(0xFF64748B) else Color.White.copy(alpha = 0.6f)
+                            )
+                        }
+                    },
+                    onClick = { onFetchDevices() }
+                )
+            } else {
+                availableDevices.forEach { dev ->
+                    val isActive = dev.isActive ||
+                            (activeDeviceName.isNotBlank() && dev.name.equals(activeDeviceName, ignoreCase = true))
+
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text(
+                                    text = dev.name.ifBlank { "Unnamed Device" },
+                                    fontSize = 13.sp,
+                                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isActive) Color(0xFF1DB954) else if (whiteTheme) Color(0xFF0F172A) else Color.White,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = if (isActive) "Listening on this device" else "Play here (${dev.type.ifBlank { "Speaker" }})",
+                                    fontSize = 10.sp,
+                                    color = if (isActive) Color(0xFF1DB954) else if (whiteTheme) Color(0xFF64748B) else Color.White.copy(alpha = 0.6f)
+                                )
+                            }
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = getDeviceIcon(dev.type),
+                                contentDescription = dev.type,
+                                tint = if (isActive) Color(0xFF1DB954) else if (whiteTheme) Color(0xFF64748B) else Color.White.copy(alpha = 0.6f),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        trailingIcon = if (isActive) {
+                            {
+                                Icon(
+                                    imageVector = Icons.Filled.Check,
+                                    contentDescription = "Active",
+                                    tint = Color(0xFF1DB954),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        } else null,
+                        onClick = {
+                            dev.id?.let { id -> onSelectDevice(id) }
+                            expanded = false
+                        }
+                    )
+                }
+            }
+
+            HorizontalDivider(color = if (whiteTheme) Color(0xFFE2E8F0) else Color.White.copy(alpha = 0.08f))
+
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        text = "Scan for Devices",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (whiteTheme) Color(0xFF0F172A) else Color.White
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.Refresh,
+                        contentDescription = "Refresh",
+                        tint = if (whiteTheme) Color(0xFF64748B) else Color.White.copy(alpha = 0.7f),
+                        modifier = Modifier.size(16.dp)
+                    )
+                },
+                onClick = { onFetchDevices() }
+            )
+
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        text = "Device Settings Dialog...",
+                        fontSize = 12.sp,
+                        color = Color(0xFF38BDF8)
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.DevicesOther,
+                        contentDescription = "More",
+                        tint = Color(0xFF38BDF8),
+                        modifier = Modifier.size(16.dp)
+                    )
+                },
+                onClick = {
+                    expanded = false
+                    onOpenFullDevicePicker()
+                }
+            )
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // 1. LANDSCAPE STANDARD VIEW (Spotify Standby Car View)
 // ═══════════════════════════════════════════════════════════════════
 @Composable
@@ -587,6 +858,7 @@ private fun LandscapeStandardView(
     onPlayPauseToggle: () -> Unit,
     onSkipNext: () -> Unit,
     onSkipPrevious: () -> Unit,
+    onSeek: (Long) -> Unit,
     onToggleShuffle: () -> Unit,
     onToggleLike: () -> Unit,
     onToggleRepeat: () -> Unit,
@@ -594,6 +866,10 @@ private fun LandscapeStandardView(
     onToggleLyrics: () -> Unit,
     onCycleLayout: () -> Unit,
     onToggleVolume: () -> Unit,
+    activeDeviceName: String = "",
+    availableDevices: List<SpotifyDeviceDto> = emptyList(),
+    onFetchDevices: () -> Unit = {},
+    onSelectDevice: (String) -> Unit = {},
     whiteTheme: Boolean = false
 ) {
     val textPrimary = if (whiteTheme) Color(0xFF111827) else Color.White
@@ -721,15 +997,15 @@ private fun LandscapeStandardView(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                LinearProgressIndicator(
-                    progress = { progressFraction },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(6.dp)
-                        .clip(RoundedCornerShape(3.dp)),
-                    color = textPrimary,
-                    trackColor = textPrimary.copy(alpha = 0.2f)
+                InteractiveMusicProgressBar(
+                    progressFraction = progressFraction,
+                    durationMs = track.durationMs,
+                    onSeek = onSeek,
+                    activeColor = textPrimary,
+                    inactiveColor = textPrimary.copy(alpha = 0.2f),
+                    thumbColor = textPrimary
                 )
+
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -832,14 +1108,16 @@ private fun LandscapeStandardView(
                     )
                 }
 
-                IconButton(onClick = onOpenDevices) {
-                    Icon(
-                        imageVector = Icons.Filled.Cast,
-                        contentDescription = "Devices",
-                        tint = textMuted,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
+                SpotifyDeviceBroadcastMenu(
+                    availableDevices = availableDevices,
+                    activeDeviceName = activeDeviceName,
+                    onFetchDevices = onFetchDevices,
+                    onSelectDevice = onSelectDevice,
+                    onOpenFullDevicePicker = onOpenDevices,
+                    whiteTheme = whiteTheme,
+                    iconTint = textMuted,
+                    iconSize = 24.dp
+                )
 
                 IconButton(onClick = onToggleRepeat) {
                     Icon(
@@ -862,19 +1140,19 @@ private fun LandscapeStandardView(
                     modifier = Modifier.clickable { onOpenDevices() }
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.KeyboardArrowUp,
-                        contentDescription = null,
-                        tint = textMuted,
+                        imageVector = if (activeDeviceName.isNotBlank()) Icons.Filled.Cast else Icons.Filled.KeyboardArrowUp,
+                        contentDescription = "Active Device",
+                        tint = if (activeDeviceName.isNotBlank()) Color(0xFF1DB954) else textMuted,
                         modifier = Modifier.size(18.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "SPOTIFY CONNECT",
+                        text = if (activeDeviceName.isNotBlank()) "PLAYING ON: ${activeDeviceName.uppercase()}" else "DEVICES & AUDIO",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.2.sp
+                            letterSpacing = 1.1.sp
                         ),
-                        color = textSecondary
+                        color = if (activeDeviceName.isNotBlank()) Color(0xFF1DB954) else textSecondary
                     )
                 }
 
@@ -904,13 +1182,18 @@ private fun PortraitStandardView(
     onPlayPauseToggle: () -> Unit,
     onSkipNext: () -> Unit,
     onSkipPrevious: () -> Unit,
+    onSeek: (Long) -> Unit,
     onToggleShuffle: () -> Unit,
     onToggleLike: () -> Unit,
     onToggleRepeat: () -> Unit,
     onOpenDevices: () -> Unit,
     onToggleLyrics: () -> Unit,
     onCycleLayout: () -> Unit,
-    onToggleVolume: () -> Unit
+    onToggleVolume: () -> Unit,
+    activeDeviceName: String = "",
+    availableDevices: List<SpotifyDeviceDto> = emptyList(),
+    onFetchDevices: () -> Unit = {},
+    onSelectDevice: (String) -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -957,9 +1240,9 @@ private fun PortraitStandardView(
                 IconButton(onClick = onToggleLyrics) {
                     Icon(
                         imageVector = Icons.Filled.FormatQuote,
-                        contentDescription = "Lyrics",
-                        tint = Color.White.copy(alpha = 0.8f),
-                        modifier = Modifier.size(22.dp)
+                        contentDescription = "Lyrics Mode",
+                        tint = Color.White.copy(alpha = 0.7f),
+                        modifier = Modifier.size(24.dp)
                     )
                 }
                 IconButton(onClick = onCycleLayout) {
@@ -967,19 +1250,19 @@ private fun PortraitStandardView(
                         imageVector = Icons.Filled.DashboardCustomize,
                         contentDescription = "Switch Layout",
                         tint = Color(0xFF38BDF8),
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(24.dp)
                     )
                 }
             }
         }
 
-        // 2. Large Centered Square Album Artwork with 600ms Crossfade
+        // 2. Square Album Art (Padded)
         Box(
             modifier = Modifier
-                .fillMaxWidth(0.92f)
+                .fillMaxWidth(0.85f)
                 .aspectRatio(1f)
                 .clip(RoundedCornerShape(20.dp))
-                .background(Color(0xFF16181F))
+                .background(Color(0xFF1E1E1E))
         ) {
             Crossfade(
                 targetState = track.albumArtUrl,
@@ -1000,7 +1283,7 @@ private fun PortraitStandardView(
             }
         }
 
-        // 3. Track Details & Like Button
+        // 3. Track Details & Like Button + Broadcast Menu
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1026,26 +1309,38 @@ private fun PortraitStandardView(
                 )
             }
 
-            IconButton(onClick = onToggleLike) {
-                Icon(
-                    imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                    contentDescription = "Like",
-                    tint = if (isLiked) Color(0xFF1DB954) else Color.White.copy(alpha = 0.85f),
-                    modifier = Modifier.size(28.dp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                SpotifyDeviceBroadcastMenu(
+                    availableDevices = availableDevices,
+                    activeDeviceName = activeDeviceName,
+                    onFetchDevices = onFetchDevices,
+                    onSelectDevice = onSelectDevice,
+                    onOpenFullDevicePicker = onOpenDevices,
+                    whiteTheme = false,
+                    iconTint = Color.White.copy(alpha = 0.85f),
+                    iconSize = 24.dp
                 )
+
+                IconButton(onClick = onToggleLike) {
+                    Icon(
+                        imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                        contentDescription = "Like",
+                        tint = if (isLiked) Color(0xFF1DB954) else Color.White.copy(alpha = 0.85f),
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
             }
         }
 
         // 4. Progress Seek Bar
         Column(modifier = Modifier.fillMaxWidth()) {
-            LinearProgressIndicator(
-                progress = { progressFraction },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp)),
-                color = Color.White,
-                trackColor = Color.White.copy(alpha = 0.25f)
+            InteractiveMusicProgressBar(
+                progressFraction = progressFraction,
+                durationMs = track.durationMs,
+                onSeek = onSeek,
+                activeColor = Color.White,
+                inactiveColor = Color.White.copy(alpha = 0.25f),
+                thumbColor = Color.White
             )
             Spacer(modifier = Modifier.height(6.dp))
             Row(
@@ -1149,16 +1444,16 @@ private fun PortraitStandardView(
                 Icon(
                     imageVector = Icons.Filled.Cast,
                     contentDescription = null,
-                    tint = Color(0xFF1DB954),
+                    tint = if (activeDeviceName.isNotBlank()) Color(0xFF1DB954) else Color.White.copy(alpha = 0.6f),
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "SPOTIFY CONNECT",
+                    text = if (activeDeviceName.isNotBlank()) "PLAYING ON: ${activeDeviceName.uppercase()}" else "DEVICES & AUDIO",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp,
-                    color = Color(0xFF1DB954)
+                    color = if (activeDeviceName.isNotBlank()) Color(0xFF1DB954) else Color.White.copy(alpha = 0.7f)
                 )
             }
 
@@ -1185,6 +1480,7 @@ private fun VinylStandbyView(
     onPlayPauseToggle: () -> Unit,
     onSkipNext: () -> Unit,
     onSkipPrevious: () -> Unit,
+    onSeek: (Long) -> Unit,
     onToggleLike: () -> Unit,
     onCycleLayout: () -> Unit,
     onToggleVolume: () -> Unit,
@@ -1353,15 +1649,15 @@ private fun VinylStandbyView(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                LinearProgressIndicator(
-                    progress = { progressFraction },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(6.dp)
-                        .clip(RoundedCornerShape(3.dp)),
-                    color = textPrimary,
-                    trackColor = textPrimary.copy(alpha = 0.2f)
+                InteractiveMusicProgressBar(
+                    progressFraction = progressFraction,
+                    durationMs = track.durationMs,
+                    onSeek = onSeek,
+                    activeColor = textPrimary,
+                    inactiveColor = textPrimary.copy(alpha = 0.2f),
+                    thumbColor = textPrimary
                 )
+
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -1479,6 +1775,7 @@ private fun FullBleedArtworkView(
     onPlayPauseToggle: () -> Unit,
     onSkipNext: () -> Unit,
     onSkipPrevious: () -> Unit,
+    onSeek: (Long) -> Unit,
     onToggleLike: () -> Unit,
     onCycleLayout: () -> Unit,
     onToggleVolume: () -> Unit
@@ -1569,15 +1866,16 @@ private fun FullBleedArtworkView(
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            LinearProgressIndicator(
-                progress = { progressFraction },
-                modifier = Modifier
-                    .fillMaxWidth(0.85f)
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp)),
-                color = Color.White,
-                trackColor = Color.White.copy(alpha = 0.3f)
+            InteractiveMusicProgressBar(
+                progressFraction = progressFraction,
+                durationMs = track.durationMs,
+                onSeek = onSeek,
+                modifier = Modifier.fillMaxWidth(0.85f),
+                activeColor = Color.White,
+                inactiveColor = Color.White.copy(alpha = 0.3f),
+                thumbColor = Color.White
             )
+
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -1694,6 +1992,8 @@ private fun LyricsModeView(
     onToggleShuffle: () -> Unit = {},
     onToggleLike: () -> Unit = {},
     onToggleRepeat: () -> Unit = {},
+    onOpenDevices: () -> Unit = {},
+    activeDeviceName: String = "",
     whiteTheme: Boolean = false
 ) {
     val accent = dynamicThemeColor ?: if (whiteTheme) Color(0xFF0284C7) else Color(0xFF1DB954)
@@ -1764,6 +2064,21 @@ private fun LyricsModeView(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = onOpenDevices,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(if (whiteTheme) Color.Black.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.1f))
+                            .size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Cast,
+                            contentDescription = "Cast Devices",
+                            tint = if (activeDeviceName.isNotBlank()) accent else lyricsTextColor,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
                     IconButton(
                         onClick = { showLayoutSelector = true },
                         modifier = Modifier
@@ -2750,6 +3065,7 @@ private fun formatTime(millis: Long): String {
 @Composable
 fun MusicPageEmptyState(
     onConnectSpotify: () -> Unit = {},
+    onOpenDevices: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val configuration = LocalConfiguration.current
@@ -2830,27 +3146,52 @@ fun MusicPageEmptyState(
                         color = Color.White.copy(alpha = 0.65f)
                     )
                     Spacer(modifier = Modifier.height(24.dp))
-                    Button(
-                        onClick = onConnectSpotify,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF1DB954),
-                            contentColor = Color.Black
-                        ),
-                        shape = CircleShape,
-                        modifier = Modifier.height(48.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.PlayArrow,
-                            contentDescription = null,
-                            tint = Color.Black,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Connect Spotify Account",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
-                        )
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Button(
+                            onClick = onConnectSpotify,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF1DB954),
+                                contentColor = Color.Black
+                            ),
+                            shape = CircleShape,
+                            modifier = Modifier.height(48.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.PlayArrow,
+                                contentDescription = null,
+                                tint = Color.Black,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Connect Spotify Account",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                        }
+
+                        Button(
+                            onClick = onOpenDevices,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF1B1E2B),
+                                contentColor = Color.White
+                            ),
+                            shape = CircleShape,
+                            modifier = Modifier.height(48.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Cast,
+                                contentDescription = null,
+                                tint = Color(0xFF1DB954),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Select Device",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                        }
                     }
                 }
             }
@@ -2895,27 +3236,52 @@ fun MusicPageEmptyState(
                     textAlign = TextAlign.Center
                 )
                 Spacer(modifier = Modifier.height(28.dp))
-                Button(
-                    onClick = onConnectSpotify,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF1DB954),
-                        contentColor = Color.Black
-                    ),
-                    shape = CircleShape,
-                    modifier = Modifier.height(48.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.PlayArrow,
-                        contentDescription = null,
-                        tint = Color.Black,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Connect Spotify",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp
-                    )
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Button(
+                        onClick = onConnectSpotify,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF1DB954),
+                            contentColor = Color.Black
+                        ),
+                        shape = CircleShape,
+                        modifier = Modifier.height(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.PlayArrow,
+                            contentDescription = null,
+                            tint = Color.Black,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Connect Spotify",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
+                        )
+                    }
+
+                    Button(
+                        onClick = onOpenDevices,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF1B1E2B),
+                            contentColor = Color.White
+                        ),
+                        shape = CircleShape,
+                        modifier = Modifier.height(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Cast,
+                            contentDescription = null,
+                            tint = Color(0xFF1DB954),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Devices",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
+                        )
+                    }
                 }
             }
         }

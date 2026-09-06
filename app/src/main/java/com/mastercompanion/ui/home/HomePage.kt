@@ -30,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Computer
@@ -80,6 +81,7 @@ import com.mastercompanion.ui.home.clock.ClockStyleHost
 import java.util.Locale
 
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.CheckCircle
@@ -110,6 +112,8 @@ fun HomePage(
     upcomingEvents: List<CalendarEvent> = emptyList(),
     hasCalendarPermission: Boolean = true,
     syncedAccount: String? = null,
+    activeDeviceName: String = "",
+    onOpenDevices: () -> Unit = {},
     onToggleChargeLimit: () -> Unit = {},
     onSendWol: (mac: String, ip: String, broadcastIp: String) -> Unit = { _, _, _ -> },
     onSavePcNetwork: (ip: String, mac: String) -> Unit = { _, _ -> },
@@ -258,6 +262,33 @@ fun HomePage(
                             )
                         }
 
+                        if (activeDeviceName.isNotBlank()) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(if (whiteTheme) Color(0xFFDCFCE7) else Color(0xFF1DB954).copy(alpha = 0.15f))
+                                    .border(1.dp, if (whiteTheme) Color(0xFF86EFAC) else Color(0xFF1DB954).copy(alpha = 0.4f), RoundedCornerShape(20.dp))
+                                    .clickable { onOpenDevices() }
+                                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Cast,
+                                    contentDescription = "Currently Showing Device",
+                                    tint = Color(0xFF1DB954),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = "CURRENTLY SHOWING: ${activeDeviceName.uppercase()}",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.8.sp,
+                                    color = Color(0xFF1DB954)
+                                )
+                            }
+                        }
+
                         // Hero Clock Composable
                         ClockStyleHost(
                             style = currentStyle,
@@ -369,6 +400,33 @@ fun HomePage(
                                         letterSpacing = 1.sp,
                                         color = Color(0xFF38BDF8)
                                     )
+                                }
+
+                                if (activeDeviceName.isNotBlank()) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(20.dp))
+                                            .background(if (whiteTheme) Color(0xFFDCFCE7) else Color(0xFF1DB954).copy(alpha = 0.15f))
+                                            .border(1.dp, if (whiteTheme) Color(0xFF86EFAC) else Color(0xFF1DB954).copy(alpha = 0.4f), RoundedCornerShape(20.dp))
+                                            .clickable { onOpenDevices() }
+                                            .padding(horizontal = 14.dp, vertical = 6.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Cast,
+                                            contentDescription = "Currently Showing Device",
+                                            tint = Color(0xFF1DB954),
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Text(
+                                            text = "CURRENTLY SHOWING: ${activeDeviceName.uppercase()}",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 0.8.sp,
+                                            color = Color(0xFF1DB954)
+                                        )
+                                    }
                                 }
 
                                 // Minimalist Pop-in Widgets & Telemetry Button

@@ -274,6 +274,34 @@ class DashboardViewModel @Inject constructor(
     val repeatMode: StateFlow<Int> = spotifyRepository.repeatMode
     val activeDeviceName: StateFlow<String> = spotifyRepository.activeDeviceName
     val spotifyVolume: StateFlow<Int?> = spotifyRepository.activeDeviceVolume
+    val nextQueuedTrack: StateFlow<SpotifyTrack?> = spotifyRepository.nextQueuedTrack
+    val availableDevices: StateFlow<List<com.mastercompanion.data.spotify.dto.SpotifyDeviceDto>> = spotifyRepository.availableDevices
+
+    fun fetchAvailableDevices() {
+        viewModelScope.launch {
+            spotifyRepository.fetchAvailableDevices()
+        }
+    }
+
+    fun transferPlayback(deviceId: String) {
+        viewModelScope.launch {
+            spotifyRepository.transferPlaybackToDevice(deviceId)
+        }
+    }
+
+    private val _volumeHudVisible = MutableStateFlow(false)
+    val volumeHudVisible: StateFlow<Boolean> = _volumeHudVisible.asStateFlow()
+
+    private var volumeHudJob: kotlinx.coroutines.Job? = null
+
+    fun triggerVolumeHud() {
+        volumeHudJob?.cancel()
+        _volumeHudVisible.value = true
+        volumeHudJob = viewModelScope.launch {
+            kotlinx.coroutines.delay(5000L)
+            _volumeHudVisible.value = false
+        }
+    }
 
     fun setSpotifyVolume(volumePercent: Int) {
         viewModelScope.launch {
@@ -284,8 +312,10 @@ class DashboardViewModel @Inject constructor(
     fun adjustSpotifyVolume(deltaPercent: Int) {
         viewModelScope.launch {
             spotifyRepository.adjustVolume(deltaPercent)
+            triggerVolumeHud()
         }
     }
+
 
     fun toggleLike() {
         viewModelScope.launch {

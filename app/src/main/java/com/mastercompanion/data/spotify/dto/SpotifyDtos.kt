@@ -91,3 +91,39 @@ data class ImageDto(
     @SerialName("height") val height: Int? = null,
     @SerialName("width") val width: Int? = null
 )
+
+@Serializable
+data class SpotifyDevicesResponse(
+    @SerialName("devices") val devices: List<SpotifyDeviceDto> = emptyList()
+)
+
+@Serializable
+data class SpotifyQueueResponse(
+    @SerialName("currently_playing") val currentlyPlaying: TrackDto? = null,
+    @SerialName("queue") val queue: List<TrackDto> = emptyList()
+)
+
+@Serializable
+data class SpotifyPlayBody(
+    @SerialName("context_uri") val contextUri: String? = null,
+    @SerialName("uris") val uris: List<String>? = null,
+    @SerialName("position_ms") val positionMs: Long? = null
+)
+
+@Serializable
+data class SpotifyTransferBody(
+    @SerialName("device_ids") val deviceIds: List<String>,
+    @SerialName("play") val play: Boolean = true
+)
+
+@Serializable
+data class SavedTrackItemDto(
+    @SerialName("track") val track: TrackDto
+)
+
+@Serializable
+data class SavedTracksResponse(
+    @SerialName("items") val items: List<SavedTrackItemDto> = emptyList()
+)
+
+
