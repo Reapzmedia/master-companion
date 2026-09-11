@@ -19,12 +19,14 @@ echo.
 echo [2/3] Setting up reverse TCP port 8420 (Command Bridge)...
 adb reverse tcp:8420 tcp:8420
 
-echo [3/3] Setting up forward UDP port 8421 (Audio Streaming)...
+echo [3/3] Setting up forward TCP port 8421 (USB Audio Streaming)...
 adb forward tcp:8421 tcp:8421
 
 echo.
 echo ================================================================
 echo  Ports successfully mapped!
-echo  Command Bridge: http://127.0.0.1:8420
+echo  Command Bridge  : http://127.0.0.1:8420
+echo  Web Dashboard   : http://127.0.0.1:8060
+echo  USB PC Audio    : python pc/audio/audio_streamer.py --target-ip 127.0.0.1
 echo ================================================================
 pause

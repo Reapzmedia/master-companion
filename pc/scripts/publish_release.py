@@ -116,7 +116,7 @@ def main() -> None:
         print("ERROR: Could not retrieve GitHub token from git credentials.", file=sys.stderr)
         sys.exit(1)
 
-    repo = "Reapzmedia/master-companionion"
+    repo = "Reapzmedia/master-companion"
     tag = sys.argv[1] if len(sys.argv) > 1 else "v1.0.4"
     name = sys.argv[2] if len(sys.argv) > 2 else f"Master Companion {tag} - Landscape Standby Perfection & Autonomous OTA"
 

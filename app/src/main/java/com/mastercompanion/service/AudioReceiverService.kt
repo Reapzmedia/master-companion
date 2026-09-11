@@ -11,6 +11,7 @@ import com.mastercompanion.MasterCompanionApp
 import com.mastercompanion.R
 import com.mastercompanion.data.audio.AudioPlayer
 import com.mastercompanion.data.audio.JitterBuffer
+import com.mastercompanion.data.audio.OpusAudioDecoder
 import com.mastercompanion.data.audio.PacketParser
 import com.mastercompanion.data.prefs.PreferencesRepository
 import com.mastercompanion.domain.model.AudioCodec
@@ -25,9 +26,13 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import java.io.DataInputStream
 import java.net.DatagramPacket
 import java.net.DatagramSocket
+import java.net.ServerSocket
+import java.net.Socket
 import java.net.SocketTimeoutException
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -40,100 +45,213 @@ class AudioReceiverService : Service() {
     lateinit var preferencesRepository: PreferencesRepository
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var receiverJob: Job? = null
+    private var udpJob: Job? = null
+    private var tcpJob: Job? = null
     private var statsJob: Job? = null
-    private var socket: DatagramSocket? = null
+
+    private var udpSocket: DatagramSocket? = null
+    private var tcpServerSocket: ServerSocket? = null
     private val jitterBuffer = JitterBuffer(bufferSizePackets = 2)
+
+    private val tcpPacketsReceived = AtomicLong(0L)
+    private var opusDecoder: OpusAudioDecoder? = null
 
     override fun onCreate() {
         super.onCreate()
         Timber.i("AudioReceiverService created")
         startForeground(NOTIFICATION_ID, buildNotification())
         audioPlayer.start()
-        startReceiver()
+        opusDecoder = OpusAudioDecoder(sampleRate = 48000, channels = 2).apply {
+            init()
+        }
+        startReceivers()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Timber.i("AudioReceiverService started (UDP receiver)")
+        Timber.i("AudioReceiverService started (Dual UDP/TCP receiver)")
         return START_STICKY
     }
 
-    private fun startReceiver() {
-        receiverJob?.cancel()
-        receiverJob = serviceScope.launch {
-            val port = preferencesRepository.audioPortFlow.first()
-            val buffer = ByteArray(8192)
+    private fun startReceivers() {
+        udpJob?.cancel()
+        tcpJob?.cancel()
+        statsJob?.cancel()
 
+        serviceScope.launch {
+            val port = preferencesRepository.audioPortFlow.first()
+            startUdpReceiver(port)
+            startTcpReceiver(port)
+            startStatsMonitor()
+        }
+    }
+
+    @Volatile
+    private var lastSenderIp: String? = null
+    @Volatile
+    private var lastCodec = AudioCodec.PCM
+    @Volatile
+    private var lastPacketTime = 0L
+    @Volatile
+    private var isTcpTransportActive = false
+
+    private fun startStatsMonitor() {
+        statsJob = serviceScope.launch {
+            while (isActive) {
+                delay(1000)
+                val elapsedSinceLastPacket = System.currentTimeMillis() - lastPacketTime
+                val isStreaming = lastPacketTime > 0 && elapsedSinceLastPacket < 3000
+
+                val totalPackets = jitterBuffer.packetsReceived + tcpPacketsReceived.get()
+                val latency = if (isStreaming) {
+                    if (isTcpTransportActive) 10.0f else 20.0f * 2
+                } else 0.0f
+
+                audioPlayer.updateStats(
+                    isReceiving = isStreaming,
+                    codec = lastCodec,
+                    packetsReceived = totalPackets,
+                    packetsLost = if (isTcpTransportActive) 0L else jitterBuffer.packetsLost,
+                    latencyMs = latency,
+                    clientIp = if (isStreaming) lastSenderIp else null
+                )
+            }
+        }
+    }
+
+    // ═══ 1. UDP Receiver (Wi-Fi LAN) ═══
+    private fun startUdpReceiver(port: Int) {
+        udpJob = serviceScope.launch {
+            val buffer = ByteArray(8192)
             try {
-                socket = DatagramSocket(port).apply {
-                    soTimeout = 2000 // 2s timeout for non-blocking loop checks
+                udpSocket = DatagramSocket(port).apply {
+                    soTimeout = 2000
                     receiveBufferSize = 65536
                 }
                 Timber.i("AudioReceiver UDP socket bound on port $port")
 
-                var lastSenderIp: String? = null
-                var lastCodec = AudioCodec.PCM
-                var lastPacketTime = 0L
-
-                // Monitor stream health and silence
-                statsJob = serviceScope.launch {
-                    while (isActive) {
-                        delay(1000)
-                        val elapsedSinceLastPacket = System.currentTimeMillis() - lastPacketTime
-                        val isStreaming = lastPacketTime > 0 && elapsedSinceLastPacket < 3000
-
-                        audioPlayer.updateStats(
-                            isReceiving = isStreaming,
-                            codec = lastCodec,
-                            packetsReceived = jitterBuffer.packetsReceived,
-                            packetsLost = jitterBuffer.packetsLost,
-                            latencyMs = if (isStreaming) 20.0f * 2 else 0.0f,
-                            clientIp = if (isStreaming) lastSenderIp else null
-                        )
-                    }
-                }
-
                 while (isActive) {
                     val packet = DatagramPacket(buffer, buffer.size)
                     try {
-                        socket?.receive(packet)
+                        udpSocket?.receive(packet)
                         lastPacketTime = System.currentTimeMillis()
-                        lastSenderIp = packet.address?.hostAddress
+                        lastSenderIp = packet.address?.hostAddress ?: "Wi-Fi LAN"
+                        isTcpTransportActive = false
 
                         val audioPacket = PacketParser.parse(packet.data, packet.length)
                         if (audioPacket != null) {
                             lastCodec = audioPacket.codec
                             jitterBuffer.push(audioPacket)
 
-                            // Drain jitter buffer to audio track
                             var queued = jitterBuffer.pop()
                             while (queued != null) {
-                                if (queued.codec == AudioCodec.PCM) {
-                                    audioPlayer.writePcm(queued.payload)
-                                }
+                                routeAudioPacket(queued.codec, queued.payload)
                                 queued = jitterBuffer.pop()
                             }
                         }
-                    } catch (e: SocketTimeoutException) {
-                        // Expected timeout during silence, continue loop
+                    } catch (_: SocketTimeoutException) {
+                        // Expected periodic timeout during silence
                     } catch (e: Exception) {
-                        if (isActive) {
-                            Timber.e(e, "Error receiving audio packet")
-                        }
+                        if (isActive) Timber.e(e, "Error receiving UDP audio packet")
                     }
                 }
             } catch (e: Exception) {
-                Timber.e(e, "Failed to start AudioReceiver UDP socket on port $port")
+                Timber.e(e, "Failed to bind AudioReceiver UDP socket on port $port")
+            }
+        }
+    }
+
+    // ═══ 2. TCP Receiver (USB ADB Forward & Direct Cable Stream) ═══
+    private fun startTcpReceiver(port: Int) {
+        tcpJob = serviceScope.launch {
+            try {
+                tcpServerSocket = ServerSocket(port).apply {
+                    reuseAddress = true
+                }
+                Timber.i("AudioReceiver TCP ServerSocket listening on port $port")
+
+                while (isActive) {
+                    try {
+                        val clientSocket: Socket = tcpServerSocket?.accept() ?: break
+                        Timber.i("AudioReceiver TCP Client connected: ${clientSocket.inetAddress.hostAddress}")
+                        handleTcpClient(clientSocket)
+                    } catch (e: Exception) {
+                        if (isActive) Timber.e(e, "TCP accept error")
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to bind AudioReceiver TCP ServerSocket on port $port")
+            }
+        }
+    }
+
+    private suspend fun handleTcpClient(clientSocket: Socket) {
+        serviceScope.launch {
+            clientSocket.use { socket ->
+                socket.tcpNoDelay = true
+                socket.soTimeout = 5000
+                val dis = DataInputStream(socket.getInputStream())
+
+                while (isActive && !socket.isClosed) {
+                    try {
+                        // Read 2-byte frame length prefix (Big-Endian)
+                        val frameLen = dis.readUnsignedShort()
+                        if (frameLen <= 0 || frameLen > 16384) {
+                            Timber.w("Invalid TCP audio frame length: $frameLen")
+                            break
+                        }
+
+                        val frameBytes = ByteArray(frameLen)
+                        dis.readFully(frameBytes)
+
+                        lastPacketTime = System.currentTimeMillis()
+                        lastSenderIp = "${socket.inetAddress.hostAddress} (USB/TCP)"
+                        isTcpTransportActive = true
+                        tcpPacketsReceived.incrementAndGet()
+
+                        val audioPacket = PacketParser.parse(frameBytes, frameLen)
+                        if (audioPacket != null) {
+                            lastCodec = audioPacket.codec
+                            routeAudioPacket(audioPacket.codec, audioPacket.payload)
+                        }
+                    } catch (_: SocketTimeoutException) {
+                        // Keep alive check
+                    } catch (e: Exception) {
+                        Timber.d("TCP streaming client disconnected: ${e.message}")
+                        break
+                    }
+                }
+            }
+        }
+    }
+
+    private fun routeAudioPacket(codec: AudioCodec, payload: ByteArray) {
+        when (codec) {
+            AudioCodec.PCM -> {
+                audioPlayer.writePcm(payload)
+            }
+            AudioCodec.OPUS -> {
+                opusDecoder?.decode(payload) { decodedPcm ->
+                    audioPlayer.writePcm(decodedPcm)
+                }
             }
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        receiverJob?.cancel()
+        udpJob?.cancel()
+        tcpJob?.cancel()
         statsJob?.cancel()
-        socket?.close()
-        socket = null
+
+        udpSocket?.close()
+        udpSocket = null
+
+        tcpServerSocket?.close()
+        tcpServerSocket = null
+
+        opusDecoder?.release()
+        opusDecoder = null
+
         audioPlayer.stop()
         serviceScope.cancel()
         Timber.i("AudioReceiverService destroyed")
@@ -151,7 +269,7 @@ class AudioReceiverService : Service() {
 
         return NotificationCompat.Builder(this, MasterCompanionApp.CHANNEL_AUDIO_RECEIVER)
             .setContentTitle(getString(R.string.app_name))
-            .setContentText("PC Audio Passthrough Receiver Active (:8421)")
+            .setContentText("PC Audio Receiver Active (UDP/TCP :8421)")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
@@ -163,3 +281,4 @@ class AudioReceiverService : Service() {
         private const val NOTIFICATION_ID = 1003
     }
 }
+

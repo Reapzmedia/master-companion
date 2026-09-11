@@ -4,8 +4,8 @@
 
 **Smart Standby Dashboard, Battery Guard & PC Companion Bridge for Rooted Android Devices**
 
-[![Release](https://img.shields.io/github/v/release/reapzmedia/master-companionion?color=brightgreen&label=Latest%20Release&style=flat-square)](https://github.com/reapzmedia/master-companionion/releases/latest)
-[![Download APK](https://img.shields.io/badge/Download%20APK-Latest%20Release-blue?style=flat-square&logo=android)](https://github.com/reapzmedia/master-companionion/releases/latest/download/app-release.apk)
+[![Release](https://img.shields.io/github/v/release/reapzmedia/master-companion?color=brightgreen&label=Latest%20Release&style=flat-square)](https://github.com/reapzmedia/master-companion/releases/latest)
+[![Download APK](https://img.shields.io/badge/Download%20APK-Latest%20Release-blue?style=flat-square&logo=android)](https://github.com/reapzmedia/master-companion/releases/latest/download/app-release.apk)
 [![Android](https://img.shields.io/badge/Android-9.0%20(API%2028)%20--%2014.0%20(API%2034)-3DDC84?style=flat-square&logo=android&logoColor=white)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0.0-7F52FF?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-2024.06.00-4285F4?style=flat-square&logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
@@ -13,9 +13,9 @@
 [![Ktor](https://img.shields.io/badge/Ktor%20CIO-2.3.12-E01A4F?style=flat-square&logo=ktor&logoColor=white)](https://ktor.io)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue?style=flat-square)](LICENSE)
 
-*Transform any docked or desk-mounted Android phone (Google Pixel 7 Pro, Huawei P20 Lite, Samsung, OnePlus, etc.) into an ultra-low-latency PC desk dashboard, hardware telemetry monitor, Spotify Car View player with karaoke synced lyrics, and physical macro keypad receiver.*
+*Master Companion turns a docked Android device (Google Pixel 7 Pro, Huawei P20 Lite, or any Android 9+ phone) into a permanent landscape desk dashboard for Spotify playback, synchronized lyrics, PC audio loopback streaming, and hardware battery bypass.*
 
-### 🚀 [Download Latest APK (Auto-Updated)](https://github.com/reapzmedia/master-companionion/releases/latest/download/app-release.apk) • [View Latest Release](https://github.com/reapzmedia/master-companionion/releases/latest)
+### 🚀 [Download Latest APK](https://github.com/reapzmedia/master-companion/releases/latest/download/app-release.apk) • [View Release Notes](https://github.com/reapzmedia/master-companion/releases/latest)
 
 </div>
 
@@ -23,51 +23,51 @@
 
 ## 📸 Highlights & Core Features
 
-### 🕒 1. Standby Clock Suite (5 Dynamic Styles)
-- **Minimalist Digital**: Clean oversized typography with real-time battery status and date.
-- **Analog Precision Gauge**: Chronograph-inspired dial with sweeping second hand, tick marks, and battery arc.
-- **Retro Split-Flap**: Mechanical airport/train terminal flip cards with mechanical flip animations and telemetry.
-- **Cyberpunk Terminal**: Neon monospace CRT-styled digital clock with system diagnostic telemetry.
-- **Word Clock Matrix**: Typographic matrix highlighting current time in words with subtle glow.
-- **OLED Anti-Burn-In Protection**: Periodic micro-pixel shifting to protect OLED/AMOLED panels during 24/7 continuous docking.
+### 🕒 1. Standby Clock Suite (5 Styles)
+- **Minimalist Digital**: Oversized typography with battery status and date.
+- **Analog Precision Gauge**: Dial gauge with sweeping second hand, tick marks, and battery level arc.
+- **Retro Split-Flap**: Mechanical split-flap card flip animations with time and battery metrics.
+- **Cyberpunk Terminal**: Monospace digital readout with system diagnostics.
+- **Word Clock Matrix**: Typographic matrix lighting up the time in words.
+- **OLED Anti-Burn-In Protection**: Micro-pixel shifting every minute to protect OLED/AMOLED panels during 24/7 docking.
 - **12h / 24h & Dark / True Black / White Themes**.
 
 ### 🎵 2. Fullscreen Spotify Companion (5 Layout Modes)
-- **Standard Car View**: Native landscape Spotify Car View replica with high-contrast playback controls and ambient artwork glow.
-- **Vinyl Turntable**: High-fidelity spinning vinyl record with animated tonearm that smoothly drops when playing and lifts when paused.
-- **Karaoke Synced Lyrics**: Live progressive-blur karaoke lyrics engine. Active singing line stays crisp and centered; upcoming lines gently cascade with optical depth of field.
-- **Minimal Standby Clock**: Clean `110sp` digital clock with compact track info; tap anywhere to seamlessly expand.
-- **Full-Bleed Edge-to-Edge**: Immersive full-screen album artwork backdrop with translucent controls.
-- **Spotify Web API 2026 Ready**: Updated to modern `/v1/me/library` endpoints for 1-tap Liked Songs toggle and remote device volume sync.
+- **Standard Car View**: Landscape player layout with large touch targets and ambient artwork backdrop.
+- **Vinyl Turntable**: Spinning vinyl record with tonearm that cues during playback and returns on pause.
+- **Karaoke Synced Lyrics**: Progressive-blur karaoke lyrics engine. Active line stays centered; upcoming lines gently blur with depth of field.
+- **Minimal Standby Clock**: `110sp` digital clock with compact track info; tap to expand.
+- **Full-Bleed Edge-to-Edge**: Full-screen album art backdrop with translucent control overlay.
+- **Spotify Web API Support**: Modern `/v1/me/library` endpoints for 1-tap Liked Songs toggle and remote device volume sync.
 
 ### 🎼 3. Multi-Source Synced Lyrics Engine
-- **Primary**: [LRCLIB](https://lrclib.net) for syllable/line-accurate synchronized LRC timestamps.
-- **Fallback**: [Lyrics.ovh](https://lyricsovh.docs.apiary.io) for automatic plain-text lyric retrieval whenever synced LRCs are unavailable.
-- **Offline In-Memory Cache**: Zero redundant network requests for repeated listens.
+- **Primary**: [LRCLIB](https://lrclib.net) for synchronized LRC timestamps.
+- **Fallback**: [Lyrics.ovh](https://lyricsovh.docs.apiary.io) for plain-text lyrics when synced LRCs are unavailable.
+- **In-Memory Cache**: Caches fetched lyrics in memory for repeat listens.
 
 ### 🔋 4. Root Battery Guard & AC Power Bypass
-- **Direct Kernel Sysfs Control**: Directly commands hardware charging ICs via root (`su -c`).
+- **Direct Kernel Sysfs Control**: Commands hardware charging ICs via root (`su -c`).
   - **Pixel 7 Pro**: `/sys/class/power_supply/battery/charging_enabled`
   - **Huawei P20 Lite / Legacy**: `/sys/class/power_supply/Battery/charging_enabled`
-- **Smart 80% Threshold**: Automatically halts charging at 80% and powers the phone purely on AC bypass power to eliminate battery swelling and degradation. Resumes automatically if dropped below 75%.
-- **Live Power Telemetry**: High-precision calculation of micro-volts ($\mu V$), micro-amps ($\mu A$), and real-time wattage ($W$).
+- **80% Charge Limit**: Automatically halts charging at 80% and powers the phone purely on AC bypass power to prevent heat and battery swelling. Resumes automatically below 75%.
+- **Live Power Telemetry**: Reads micro-volts ($\mu V$), micro-amps ($\mu A$), and real-time wattage ($W$).
 
-### 📅 5. Google Calendar & Reminders Widget
-- Queries Android system Calendar `ContentProvider` for the user's active schedule.
-- Displays upcoming events, start/end times, and reminder countdowns right on the home dashboard.
+### 📅 5. Google Calendar Widget
+- Queries the Android Calendar `ContentProvider` for current day events.
+- Shows upcoming events, start/end times, and countdowns on the clock screen.
 
 ### 🌐 6. Embedded Web Remote Dashboard (`:8060`) & HTTP Command Server (`:8420`)
-- **Web Remote Control**: Built-in, zero-dependency glassmorphic web dashboard served directly by the phone. Open `http://<phone-ip>:8060` in any PC browser to control playback, volume, clock styles, and power limits.
-- **Server-Sent Events (SSE)**: Streams real-time battery wattage, track metadata, and volume to PC browsers at 60 FPS.
-- **REST Command API**: Secure token-authenticated HTTP endpoints (`POST /command`) for script automation.
+- **Web Remote Control**: Served directly by the phone. Open `http://<phone-ip>:8060` in any PC browser to control playback, volume, clock styles, and power limits.
+- **Server-Sent Events (SSE)**: Pushes real-time battery wattage, track metadata, and volume updates directly to connected browsers.
+- **REST Command API**: Token-authenticated HTTP endpoints (`POST /command`) for script automation.
 
 ### 🎧 7. Low-Latency PC Audio Passthrough Receiver (`:8421`)
-- Streams bit-perfect 48kHz 16-bit stereo PCM audio directly from Windows WASAPI loopback into Android's low-latency `AudioTrack` via UDP port `8421`.
-- Roundtrip latency $< 25\text{ms}$ with zero perceptible delay for gaming, YouTube, and editing.
+- Streams 48kHz 16-bit stereo PCM audio from Windows WASAPI loopback into Android's low-latency `AudioTrack` via UDP port `8421`.
+- Latency $< 25\text{ms}$ over local Wi-Fi or USB tethering.
 
 ### ⌨️ 8. Physical Macro-Pad & Rotary Encoder Bridge
-- Windows AutoHotkey v2 bridge script (`pc/ahk/companion_bridge.ahk`) maps physical macro keys (`F13`-`F24`, custom numpads, rotary encoders) to Android actions.
-- Rotary knob support: smoothly steps Android and Spotify volume simultaneously.
+- AutoHotkey v2 bridge script (`pc/ahk/companion_bridge.ahk`) maps physical macro keys (`F13`-`F24`, custom numpads, rotary encoders) to Android actions.
+- Rotary knob support: updates Android and Spotify volume simultaneously.
 
 ---
 
@@ -174,23 +174,24 @@ master-companion/
 ### 2. Building & Installing the Android App
 ```powershell
 # Clone the repository
-git clone https://github.com/your-username/master-companion.git
+git clone https://github.com/Reapzmedia/master-companion.git
 cd master-companion
 
 # Run unit tests
 .\gradlew.bat testDebugUnitTest
 
-# Build & install debug APK to connected rooted device
-.\gradlew.bat installDebug
+# Build and install release APK to connected device
+.\gradlew.bat assembleRelease
+adb install -r app/build/outputs/apk/release/app-release.apk
 ```
 
 ### 3. Granting Root & Connecting Spotify
-1. Open the **Master Companion** app on your phone.
-2. Grant **Root permissions** when prompted by Magisk/KernelSU (for Battery Guard charge bypass).
+1. Open **Master Companion** on the device.
+2. Grant **Root permissions** when prompted (for Battery Guard charge bypass).
 3. Grant **Calendar permission** (for upcoming schedule events).
 4. Swipe to **Settings** > **Spotify Web API** > tap **Connect Spotify**.
-   - Authenticate via the standard Spotify OAuth PKCE flow in your browser.
-   - You're done! Your currently playing media and library will immediately appear on the Music page.
+   - Authenticate via Spotify OAuth PKCE in your browser.
+   - Currently playing media will appear on the Music page.
 
 ### 4. Running the PC Companion Utilities
 
@@ -216,7 +217,7 @@ Open any browser on your local network:
 ```
 http://<PHONE_IP>:8060
 ```
-Enjoy real-time playback control, track seekbar, volume adjustment, and battery metrics.
+Provides playback controls, track seeking, volume adjustment, and battery telemetry.
 
 ---
 
@@ -230,7 +231,7 @@ The embedded Ktor server exposes the following endpoints on port `8420`:
 | `GET` | `/status` | None | Returns full JSON system, battery, and playback status |
 | `GET` | `/commands` | None | Returns list of all available commands |
 | `POST` | `/command` | `X-Auth-Token: <token>` | Dispatches an action to the app |
-| `GET` | `http://<ip>:8060/` | None | Modern browser remote control dashboard |
+| `GET` | `http://<ip>:8060/` | None | Browser remote control dashboard |
 | `GET` | `http://<ip>:8060/api/events` | None | Server-Sent Events (SSE) telemetry stream |
 
 ### Example Command Payload
@@ -245,12 +246,11 @@ curl -X POST http://192.168.1.42:8420/command \
 
 ## 🧪 Testing & Verification
 
-All domain logic, parsers, and API integrations have comprehensive unit test coverage:
+Unit tests cover domain logic, protocol parsers, and API integrations:
 ```powershell
 .\gradlew.bat testDebugUnitTest
 ```
-- **13 Test Suites**: `LyricsRepositoryTest`, `SpotifyRepositoryTest`, `PacketParserTest`, `JitterBufferTest`, `CommandExecutorTest`, `RootBatteryDataSourceTest`, `BatteryRepositoryTest`, `DeviceCompatTest`, `RootShellTest`, and more.
-- **Result**: 100% test pass rate with zero warnings.
+- **Test Suites**: `LyricsRepositoryTest`, `SpotifyRepositoryTest`, `PacketParserTest`, `JitterBufferTest`, `CommandExecutorTest`, `RootBatteryDataSourceTest`, `BatteryRepositoryTest`, `DeviceCompatTest`, `RootShellTest`, and more.
 
 ---
 

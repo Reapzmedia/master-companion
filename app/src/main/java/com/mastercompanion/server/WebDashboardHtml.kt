@@ -399,15 +399,15 @@ object WebDashboardHtml {
         <div class="card">
             <div class="card-title">Now Playing (Spotify)</div>
             <div class="media-layout">
-                <img id="track-art" class="media-art" src="https://misc.scdn.co/keep-calm/default-256.jpg" alt="Artwork">
+                <img id="track-art" class="media-art" src="https://misc.scdn.co/keep-calm/default-256.jpg" alt="Current album artwork">
                 <div class="media-details">
                     <div id="track-title" class="media-title">No Track Active</div>
                     <div id="track-artist" class="media-artist">Open Spotify to begin playback</div>
                     
                     <div class="media-controls">
-                        <button class="btn-media" onclick="controlMedia('prev')">⏮</button>
-                        <button id="btn-play-pause" class="btn-media play-pause" onclick="controlMedia('play-pause')">▶</button>
-                        <button class="btn-media" onclick="controlMedia('next')">⏭</button>
+                        <button class="btn-media" onclick="controlMedia('prev')" aria-label="Previous track">⏮</button>
+                        <button id="btn-play-pause" class="btn-media play-pause" onclick="controlMedia('play-pause')" aria-label="Play or pause">▶</button>
+                        <button class="btn-media" onclick="controlMedia('next')" aria-label="Next track">⏭</button>
                     </div>
 
                     <div class="progress-bar-bg">
@@ -450,7 +450,7 @@ object WebDashboardHtml {
     </div>
 
     <!-- Feedback Toast -->
-    <div id="toast">Message</div>
+    <div id="toast" role="status" aria-live="polite">Message</div>
 
     <script>
         function showToast(text, color = '#10B981') {
@@ -466,7 +466,7 @@ object WebDashboardHtml {
                 const res = await fetch('/api/wol', { method: 'POST' });
                 const data = await res.json();
                 if (data.status === 'ok') {
-                    showToast('⚡ Wake-on-LAN Magic Packet Sent!');
+                    showToast('Wake-on-LAN packet sent');
                 } else {
                     showToast('Failed to send: ' + (data.message || 'Unknown error'), '#EF4444');
                 }

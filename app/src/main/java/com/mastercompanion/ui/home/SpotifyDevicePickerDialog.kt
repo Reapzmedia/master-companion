@@ -65,7 +65,7 @@ internal fun getDeviceIcon(type: String): ImageVector {
 /**
  * Native Spotify Standby Device Picker Dialog.
  * Allows users to view all available Spotify Connect devices on their local network
- * and seamlessly transfer playback to the selected target device.
+ * and transfer playback to the selected target device.
  */
 @Composable
 fun SpotifyDevicePickerDialog(

@@ -38,7 +38,7 @@ class UpdateRepository @Inject constructor(
     private val _updateStatus = MutableStateFlow<UpdateStatus>(UpdateStatus.Idle)
     val updateStatus: StateFlow<UpdateStatus> = _updateStatus.asStateFlow()
 
-    private val releasesApiUrl = "https://api.github.com/repos/Reapzmedia/master-companionion/releases/latest"
+    private val releasesApiUrl = "https://api.github.com/repos/Reapzmedia/master-companion/releases/latest"
 
     suspend fun checkForUpdate(): UpdateStatus = withContext(ioDispatcher) {
         _updateStatus.value = UpdateStatus.Checking

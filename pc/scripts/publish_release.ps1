@@ -23,7 +23,7 @@ if (-not $token) {
     exit 1
 }
 
-$repo = "Reapzmedia/master-companionion"
+$repo = "Reapzmedia/master-companion"
 $notesPath = Join-Path $PSScriptRoot "..\..\RELEASE_NOTES.md"
 $body = if (Test-Path $notesPath) { [System.IO.File]::ReadAllText($notesPath, [System.Text.Encoding]::UTF8) } else { "Release $tag" }
 

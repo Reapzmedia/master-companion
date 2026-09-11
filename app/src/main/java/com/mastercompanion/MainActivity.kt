@@ -90,6 +90,9 @@ class MainActivity : ComponentActivity() {
         // Setup edge-to-edge immersive landscape view
         enableImmersiveMode()
 
+        // Automatically start core companion foreground services
+        startCoreServices()
+
         // Handle incoming intent (e.g. Spotify OAuth callback deep link)
         handleIntent(intent)
 
@@ -169,6 +172,27 @@ class MainActivity : ComponentActivity() {
             }
         }
         return super.onKeyDown(keyCode, event)
+    }
+
+    private fun startCoreServices() {
+        try {
+            val services = listOf(
+                com.mastercompanion.service.BatteryGuardService::class.java,
+                com.mastercompanion.service.CommandBridgeService::class.java,
+                com.mastercompanion.service.AudioReceiverService::class.java
+            )
+            for (serviceClass in services) {
+                val intent = Intent(this, serviceClass)
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    startForegroundService(intent)
+                } else {
+                    startService(intent)
+                }
+            }
+            Timber.i("Core companion foreground services launched successfully")
+        } catch (e: Exception) {
+            Timber.e(e, "Error launching core companion services")
+        }
     }
 }
 
