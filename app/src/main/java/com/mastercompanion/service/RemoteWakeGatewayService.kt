@@ -235,7 +235,7 @@ class RemoteWakeGatewayService : LifecycleService() {
                 batteryLevel = battery.level,
                 batteryStatus = battery.powerSource,
                 temperatureC = battery.temperatureCelsius,
-                localIp = wolSender.detectLocalBroadcastAddresses().firstOrNull() ?: "",
+                localIp = wolSender.detectLocalIpAddress() ?: "",
                 lastHeartbeat = System.currentTimeMillis()
             )
             remoteVaultRepository.updateHostPresence(presence)
