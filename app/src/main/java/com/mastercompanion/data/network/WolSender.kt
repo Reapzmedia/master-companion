@@ -16,6 +16,21 @@ import javax.inject.Singleton
 class WolSender @Inject constructor(
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) {
+    fun buildMagicPacket(macAddress: String): ByteArray {
+        val macBytes = parseMacAddress(macAddress)
+        // Magic packet: 6 bytes of 0xFF followed by 16 repetitions of the target MAC address (102 bytes total)
+        val bytes = ByteArray(6 + 16 * macBytes.size)
+        for (i in 0 until 6) {
+            bytes[i] = 0xFF.toByte()
+        }
+        var dest = 6
+        for (i in 0 until 16) {
+            System.arraycopy(macBytes, 0, bytes, dest, macBytes.size)
+            dest += macBytes.size
+        }
+        return bytes
+    }
+
     /**
      * Sends a Wake-on-LAN Magic Packet to wake up a desktop PC on the local network (Layer 2 broadcast).
      * @param macAddress Format "AA:BB:CC:DD:EE:FF" or "AA-BB-CC-DD-EE-FF"
@@ -26,17 +41,7 @@ class WolSender @Inject constructor(
         customBroadcastOrIp: String? = null
     ): Result<Unit> = withContext(ioDispatcher) {
         try {
-            val macBytes = parseMacAddress(macAddress)
-            // Magic packet: 6 bytes of 0xFF followed by 16 repetitions of the target MAC address (102 bytes total)
-            val bytes = ByteArray(6 + 16 * macBytes.size)
-            for (i in 0 until 6) {
-                bytes[i] = 0xFF.toByte()
-            }
-            var dest = 6
-            for (i in 0 until 16) {
-                System.arraycopy(macBytes, 0, bytes, dest, macBytes.size)
-                dest += macBytes.size
-            }
+            val bytes = buildMagicPacket(macAddress)
 
             // Gather all candidate broadcast and directed IP targets
             val targetAddresses = mutableSetOf<String>()
@@ -124,6 +129,27 @@ class WolSender @Inject constructor(
             Timber.w(e, "Error detecting network interface broadcast addresses")
         }
         return broadcastList
+    }
+
+    /**
+     * Finds the active local IPv4 address of this Android device on the local Wi-Fi.
+     */
+    fun detectLocalIpAddress(): String? {
+        try {
+            val interfaces = NetworkInterface.getNetworkInterfaces()
+            while (interfaces.hasMoreElements()) {
+                val networkInterface = interfaces.nextElement()
+                if (networkInterface.isLoopback || !networkInterface.isUp) continue
+                for (inetAddress in networkInterface.inetAddresses) {
+                    if (!inetAddress.isLoopbackAddress && inetAddress is java.net.Inet4Address) {
+                        return inetAddress.hostAddress
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "Error detecting local IP address")
+        }
+        return null
     }
 
     /**

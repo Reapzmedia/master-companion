@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.google.services)
 }
 
 android {
@@ -137,6 +138,18 @@ dependencies {
 
     // Logging
     implementation(libs.timber)
+
+    // Firebase (Zero-Password Cloud Vault)
+    val firebaseBom = platform(libs.firebase.bom)
+    implementation(firebaseBom)
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore)
+    implementation(libs.firebase.messaging)
+    implementation(libs.coroutines.play.services)
+
+    // QR Code Generation & Scanning
+    implementation(libs.zxing.core)
+    implementation(libs.zxing.android.embedded)
 
     // Testing
     testImplementation(libs.junit)

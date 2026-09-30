@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "773167140850",
+    "project_id": "master-companion-d3fd3",
+    "storage_bucket": "master-companion-d3fd3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:773167140850:android:14859fd4865ca53648a56b",
+        "android_client_info": {
+          "package_name": "com.mastercompanion"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBmTcM-nyyUMnpdOqqxGD7pGERYtXCDiWc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

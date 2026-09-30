@@ -95,6 +95,9 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
+    val deviceRole: StateFlow<String> = preferencesRepository.deviceRoleFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "UNSET")
+
     val authToken: StateFlow<String> = preferencesRepository.authTokenFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "master-companion-default-token")
 

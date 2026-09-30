@@ -60,8 +60,10 @@ import kotlinx.coroutines.launch
 fun DashboardHost(
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
-    // Initial page set to 1 (HomePage) with Settings 1 swipe to the left (Page 0)
-    val pagerState = rememberPagerState(initialPage = 1, pageCount = { 5 })
+    val deviceRole by viewModel.deviceRole.collectAsStateWithLifecycle()
+
+    // Default to Page 0 (Remote Sync Hub / Role Chooser) so fresh installs and Wakers open directly to the Remote!
+    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 6 })
     val coroutineScope = rememberCoroutineScope()
 
     // Observe state from ViewModel
@@ -137,10 +139,21 @@ fun DashboardHost(
         }
     }
 
+    // Auto-navigate to Standby Clock (Page 2) if device is configured as Desk Host
+    var hasAutoNavigatedToHostClock by remember { mutableStateOf(false) }
+    LaunchedEffect(deviceRole) {
+        if (deviceRole == "HOST" && !hasAutoNavigatedToHostClock) {
+            hasAutoNavigatedToHostClock = true
+            pagerState.scrollToPage(2)
+        } else if (deviceRole == "WAKER") {
+            pagerState.scrollToPage(0)
+        }
+    }
+
     // Listen for remote navigate commands from AHK / HTTP bridge
     LaunchedEffect(Unit) {
         viewModel.navigationEvents.collect { targetPage ->
-            val clampedPage = targetPage.coerceIn(0, 4)
+            val clampedPage = targetPage.coerceIn(0, 5)
             pagerState.animateScrollToPage(clampedPage)
         }
     }
@@ -159,7 +172,13 @@ fun DashboardHost(
             ) { page ->
                 when (page) {
                     0 -> {
-                        // ═══ Page 0: Leftmost Settings & Control Hub ═══
+                        // ═══ Page 0: Remote Sync & Gateway Hub ═══
+                        com.mastercompanion.ui.sync.RemoteSyncPage(
+                            whiteTheme = whiteTheme
+                        )
+                    }
+                    1 -> {
+                        // ═══ Page 1: Leftmost Settings & Control Hub ═══
                         SettingsPage(
                             authToken = authToken,
                             chargeStopThreshold = chargeStopThreshold,
@@ -210,8 +229,8 @@ fun DashboardHost(
                             onStopServer = { viewModel.stopServer() }
                         )
                     }
-                    1 -> {
-                        // ═══ Page 1: Standby Clock (5 styles, 12h/24h) + Google Calendar & Reminders + Battery ═══
+                    2 -> {
+                        // ═══ Page 2: Standby Clock (5 styles, 12h/24h) + Google Calendar & Reminders + Battery (HOME) ═══
                         HomePage(
                             batteryData = batteryData,
                             pcMac = pcMac,
@@ -251,8 +270,8 @@ fun DashboardHost(
                             }
                         )
                     }
-                    2 -> {
-                        // ═══ Page 2: Dedicated Spotify Standby Player (5 layouts + LRCLIB Lyrics) ═══
+                    3 -> {
+                        // ═══ Page 3: Dedicated Spotify Standby Player (5 layouts + LRCLIB Lyrics) ═══
                         MusicPage(
                             track = currentTrack,
                             lyrics = currentLyrics,
@@ -283,16 +302,16 @@ fun DashboardHost(
                             onLayoutChanged = { viewModel.setMusicLayout(it.ordinal) }
                         )
                     }
-                    3 -> {
-                        // ═══ Page 3: PC Low-Latency UDP Audio Receiver ═══
+                    4 -> {
+                        // ═══ Page 4: PC Low-Latency UDP Audio Receiver ═══
                         AudioPage(
                             streamState = audioStreamState,
                             deviceIp = deviceIp,
                             onVolumeChange = { viewModel.setAudioVolume(it) }
                         )
                     }
-                    4 -> {
-                        // ═══ Page 4: System Status, Root Diagnostics & HTTP Command Logs ═══
+                    5 -> {
+                        // ═══ Page 5: System Status, Root Diagnostics & HTTP Command Logs ═══
                         SystemPage(
                             isRooted = isRootAvailable,
                             commandLogs = commandLogs,
@@ -304,7 +323,7 @@ fun DashboardHost(
 
             // ═══ Bottom Navigation Dots Indicator ═══
             AnimatedVisibility(
-                visible = !(isFullscreenClock && pagerState.currentPage == 1),
+                visible = !(isFullscreenClock && pagerState.currentPage == 2),
                 enter = fadeIn(),
                 exit = fadeOut(),
                 modifier = Modifier.align(Alignment.BottomCenter)
@@ -318,7 +337,7 @@ fun DashboardHost(
                     val dotActiveColor = if (whiteTheme) Color.Black.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.9f)
                     val dotInactiveColor = if (whiteTheme) Color.Black.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.25f)
 
-                    repeat(5) { index ->
+                    repeat(6) { index ->
                         val isSelected = pagerState.currentPage == index
                         val width by animateDpAsState(
                             targetValue = if (isSelected) 22.dp else 6.dp,

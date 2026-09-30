@@ -49,6 +49,15 @@ class MasterCompanionApp : Application() {
                 ).apply {
                     description = "Foreground playback notification for low-latency PC audio streaming"
                     setShowBadge(false)
+                },
+                NotificationChannel(
+                    CHANNEL_PC_READY,
+                    "PC Boot Status",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "High-priority notification when your PC completes boot verification"
+                    setShowBadge(true)
+                    enableVibration(true)
                 }
             )
 
@@ -60,5 +69,6 @@ class MasterCompanionApp : Application() {
         const val CHANNEL_BATTERY_GUARD = "channel_battery_guard"
         const val CHANNEL_COMMAND_BRIDGE = "channel_command_bridge"
         const val CHANNEL_AUDIO_RECEIVER = "channel_audio_receiver"
+        const val CHANNEL_PC_READY = "channel_pc_ready"
     }
 }

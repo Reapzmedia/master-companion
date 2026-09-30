@@ -15,15 +15,18 @@ class BootReceiver : BroadcastReceiver() {
             val batteryGuardIntent = Intent(context, BatteryGuardService::class.java)
             val commandBridgeIntent = Intent(context, CommandBridgeService::class.java)
             val audioReceiverIntent = Intent(context, AudioReceiverService::class.java)
+            val remoteGatewayIntent = Intent(context, RemoteWakeGatewayService::class.java)
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(batteryGuardIntent)
                 context.startForegroundService(commandBridgeIntent)
                 context.startForegroundService(audioReceiverIntent)
+                context.startForegroundService(remoteGatewayIntent)
             } else {
                 context.startService(batteryGuardIntent)
                 context.startService(commandBridgeIntent)
                 context.startService(audioReceiverIntent)
+                context.startService(remoteGatewayIntent)
             }
         }
     }

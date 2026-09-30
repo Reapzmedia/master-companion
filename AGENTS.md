@@ -231,6 +231,17 @@ Gemini should execute the remaining codebase in this sequential order:
 - [x] Google Calendar Sync (`data/calendar/CalendarRepository.kt`: native Android Calendar ContentProvider query).
 - [x] Bidirectional Volume Synchronization (knob / slider updates both Android stream and remote Spotify device).
 
+### Phase 8: Cloud-Relayed Wake Gateway & Zero-Password QR Sync
+- [x] Configure Firebase Anonymous Auth + Cloud Firestore + Messaging (`google-services.json`).
+- [x] Create `data/network/LanPcScanner.kt` (NetBIOS UDP 137 subnet query for PC hostname & MAC discovery without root + TCP 445 boot verification).
+- [x] Create `data/remote/RemoteVaultRepository.kt` (Cryptographic vault management, 6-digit key rotation, real-time command dispatch & 5s status refresh cooldown).
+- [x] Create `service/RemoteWakeGatewayService.kt` (Foreground gateway service for Desk Host on home Wi-Fi).
+- [x] Create `ui/sync/RemoteSyncPage.kt` (Page 0 in 6-page HorizontalPager: QR generator/scanner, 6-digit key display/entry, LAN auto-detect dialog).
+- [x] Create `ui/sync/WakerRemoteView.kt` (Tactile Pocket Remote with live stopwatch, haptics, and milestone timeline).
+- [x] Create `service/QuickWakeTileService.kt` & `ui/widget/QuickWakeWidget.kt` (Notification shade tile & 1x1 home screen widget).
+- [x] Create `channel_pc_ready` high-priority notification channel for heads-up boot alert.
+
+
 ---
 
 ## 6. Handover Prompt for Gemini in Android Studio

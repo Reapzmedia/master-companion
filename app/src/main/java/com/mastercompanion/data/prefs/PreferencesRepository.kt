@@ -60,7 +60,12 @@ class PreferencesRepository @Inject constructor(
         val KEY_LAST_TRACK_ALBUM = stringPreferencesKey("last_track_album")
         val KEY_LAST_TRACK_ART_URL = stringPreferencesKey("last_track_art_url")
         val KEY_LAST_TRACK_DURATION_MS = longPreferencesKey("last_track_duration_ms")
+        val KEY_DEVICE_ROLE = stringPreferencesKey("device_role")
+        val KEY_VAULT_ID = stringPreferencesKey("vault_id")
+        val KEY_VAULT_SHORT_KEY = stringPreferencesKey("vault_short_key")
+        val KEY_LEGACY_KTOR_ENABLED = booleanPreferencesKey("legacy_ktor_enabled")
     }
+
 
 
     // ═══ Flows ═══
@@ -318,6 +323,45 @@ class PreferencesRepository @Inject constructor(
             isRecentFallback = true,
             playlistContext = prefs[KEY_LAST_TRACK_ALBUM]?.ifBlank { "Liked Songs" } ?: "Liked Songs"
         )
+    }
+
+    val deviceRoleFlow: Flow<String> = dataStore.data.map { prefs ->
+        prefs[KEY_DEVICE_ROLE] ?: "UNSET"
+    }
+
+    val vaultIdFlow: Flow<String> = dataStore.data.map { prefs ->
+        prefs[KEY_VAULT_ID] ?: ""
+    }
+
+    val vaultShortKeyFlow: Flow<String> = dataStore.data.map { prefs ->
+        prefs[KEY_VAULT_SHORT_KEY] ?: ""
+    }
+
+    val legacyKtorEnabledFlow: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_LEGACY_KTOR_ENABLED] ?: false
+    }
+
+    suspend fun setDeviceRole(role: String) {
+        dataStore.edit { it[KEY_DEVICE_ROLE] = role }
+    }
+
+    suspend fun setVaultDetails(vaultId: String, shortKey: String) {
+        dataStore.edit {
+            it[KEY_VAULT_ID] = vaultId
+            it[KEY_VAULT_SHORT_KEY] = shortKey
+        }
+    }
+
+    suspend fun clearVault() {
+        dataStore.edit {
+            it.remove(KEY_VAULT_ID)
+            it.remove(KEY_VAULT_SHORT_KEY)
+            it[KEY_DEVICE_ROLE] = "UNSET"
+        }
+    }
+
+    suspend fun setLegacyKtorEnabled(enabled: Boolean) {
+        dataStore.edit { it[KEY_LEGACY_KTOR_ENABLED] = enabled }
     }
 }
 

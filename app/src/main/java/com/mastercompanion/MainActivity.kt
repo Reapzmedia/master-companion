@@ -31,6 +31,7 @@ import com.mastercompanion.ui.theme.MasterCompanionTheme
 import com.mastercompanion.ui.theme.PureBlack
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.firstOrNull
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -43,13 +44,23 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var spotifyRepository: SpotifyRepository
 
+    @Inject
+    lateinit var preferencesRepository: com.mastercompanion.data.prefs.PreferencesRepository
+
     private var orientationListener: OrientationEventListener? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // ═══ Default to Horizontal (Landscape) for Smart Desk Standby Companion ═══
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        // Adapt orientation: Wakers and unconfigured phones start in natural portrait; Hosts start in landscape
+        lifecycleScope.launch {
+            val role = preferencesRepository.deviceRoleFlow.firstOrNull() ?: "UNSET"
+            if (role == "WAKER" || role == "UNSET") {
+                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT
+            } else {
+                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            }
+        }
 
         // Dynamically allow vertical orientation if user holds phone upright
         orientationListener = object : OrientationEventListener(this) {
@@ -179,7 +190,8 @@ class MainActivity : ComponentActivity() {
             val services = listOf(
                 com.mastercompanion.service.BatteryGuardService::class.java,
                 com.mastercompanion.service.CommandBridgeService::class.java,
-                com.mastercompanion.service.AudioReceiverService::class.java
+                com.mastercompanion.service.AudioReceiverService::class.java,
+                com.mastercompanion.service.RemoteWakeGatewayService::class.java
             )
             for (serviceClass in services) {
                 val intent = Intent(this, serviceClass)
